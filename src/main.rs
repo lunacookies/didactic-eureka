@@ -15,7 +15,9 @@ fn main() -> io::Result<()> {
             break;
         }
 
-        dbg!(didactic_eureka::lex(&input));
+        let tokens = dbg!(didactic_eureka::lexer::lex(&input));
+        let items = dbg!(didactic_eureka::parser::parse(&tokens));
+        let _ = items;
 
         input.clear();
     }

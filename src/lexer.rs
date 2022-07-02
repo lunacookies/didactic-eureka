@@ -12,13 +12,13 @@ pub fn lex(text: &str) -> Vec<Token<'_>> {
     tokens
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token<'a> {
     pub text: &'a str,
     pub kind: TokenKind,
 }
 
-#[derive(Debug, Logos)]
+#[derive(Debug, PartialEq, Clone, Copy, Logos)]
 pub enum TokenKind {
     #[token("fn")]
     FnKw,
@@ -88,4 +88,6 @@ pub enum TokenKind {
     #[error]
     #[regex("[ \t\n]+", logos::skip)]
     Error,
+
+    Eof,
 }
