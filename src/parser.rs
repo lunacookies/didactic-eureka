@@ -29,15 +29,49 @@ impl Parser<'_> {
         match self.peek() {
             TokenKind::FnKw => {
                 self.bump(TokenKind::FnKw);
+
                 let name = self.expect(TokenKind::Ident)?;
+
                 self.expect(TokenKind::LParen)?;
+                let mut params = Vec::new();
+                while self.peek() != TokenKind::RParen {
+                    let name = self.expect(TokenKind::Ident)?;
+                    let ty = self.parse_ty()?;
+                    params.push((name, ty));
+
+                    if self.peek() != TokenKind::RParen {
+                        self.expect(TokenKind::Comma)?;
+                    }
+                }
                 self.expect(TokenKind::RParen)?;
+
+                let return_ty = self.parse_ty()?;
+
                 self.expect(TokenKind::LBrace)?;
                 self.expect(TokenKind::RBrace)?;
 
-                Ok(ast::Item::Function { name })
+                Ok(ast::Item::Function { name, params, return_ty })
             }
             _ => Err(self.error("item")),
+        }
+    }
+
+    fn parse_ty(&mut self) -> ParseResult<ast::Ty> {
+        match self.peek() {
+            TokenKind::VoidKw => {
+                self.bump(TokenKind::VoidKw);
+                Ok(ast::Ty::Void)
+            }
+            TokenKind::Ident => {
+                let name = self.bump(TokenKind::Ident);
+                Ok(ast::Ty::Named(name))
+            }
+            TokenKind::Star => {
+                self.bump(TokenKind::Star);
+                let ty = self.parse_ty()?;
+                Ok(ast::Ty::Pointer(Box::new(ty)))
+            }
+            _ => Err(self.error("type")),
         }
     }
 
