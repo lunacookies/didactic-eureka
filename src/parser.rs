@@ -52,6 +52,28 @@ impl Parser<'_> {
 
                 Ok(ast::Item::Function { name, params, return_ty })
             }
+
+            TokenKind::StructKw => {
+                self.bump(TokenKind::StructKw);
+
+                let name = self.expect(TokenKind::Ident)?;
+
+                self.expect(TokenKind::LBrace)?;
+                let mut fields = Vec::new();
+                while self.peek() != TokenKind::RBrace {
+                    let name = self.expect(TokenKind::Ident)?;
+                    let ty = self.parse_ty()?;
+                    fields.push((name, ty));
+
+                    if self.peek() != TokenKind::RBrace {
+                        self.expect(TokenKind::Comma)?;
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+
+                Ok(ast::Item::Struct { name, fields })
+            }
+
             _ => Err(self.error("item")),
         }
     }
