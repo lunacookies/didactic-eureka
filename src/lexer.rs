@@ -38,6 +38,8 @@ pub enum TokenKind {
     BreakKw,
     #[token("continue")]
     ContinueKw,
+    #[token("void")]
+    VoidKw,
 
     #[regex("[a-z][a-z0-9]*")]
     Ident,
