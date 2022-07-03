@@ -18,6 +18,7 @@ pub enum Expr {
     IntLiteral(u32),
     StringLiteral(String),
     CharLiteral(String),
+    Variable(String),
     Binary { lhs: Box<Expr>, rhs: Box<Expr>, op: BinaryOp },
     Prefix { expr: Box<Expr>, op: PrefixOp },
 }

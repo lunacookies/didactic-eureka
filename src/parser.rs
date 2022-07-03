@@ -180,6 +180,10 @@ impl Parser<'_> {
                 let text = self.bump(TokenKind::Char);
                 Ok(ast::Expr::CharLiteral(text[1..text.len() - 1].to_string()))
             }
+            TokenKind::Ident => {
+                let text = self.bump(TokenKind::Ident);
+                Ok(ast::Expr::Variable(text))
+            }
             TokenKind::LParen => {
                 self.bump(TokenKind::LParen);
                 let e = self.parse_expr()?;
