@@ -89,12 +89,16 @@ impl Parser<'_> {
     }
 
     fn parse_stmt(&mut self) -> ParseResult<ast::Stmt> {
-        self.expect(TokenKind::LetKw)?;
-        let name = self.expect(TokenKind::Ident)?;
-        self.expect(TokenKind::Eq)?;
-        let val = self.parse_expr()?;
+        if self.peek() == TokenKind::LetKw {
+            self.expect(TokenKind::LetKw)?;
+            let name = self.expect(TokenKind::Ident)?;
+            self.expect(TokenKind::Eq)?;
+            let val = self.parse_expr()?;
+            return Ok(ast::Stmt::Let { name, val });
+        }
 
-        Ok(ast::Stmt::Let { name, val })
+        let e = self.parse_expr()?;
+        Ok(ast::Stmt::Expr(e))
     }
 
     fn parse_expr(&mut self) -> ParseResult<ast::Expr> {

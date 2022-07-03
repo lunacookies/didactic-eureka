@@ -10,6 +10,7 @@ pub struct Block(pub Vec<Stmt>);
 #[derive(Debug)]
 pub enum Stmt {
     Let { name: String, val: Expr },
+    Expr(Expr),
 }
 
 #[derive(Debug)]
