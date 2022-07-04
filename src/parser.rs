@@ -1,9 +1,9 @@
-use crate::ast;
+use crate::ast::{BinaryOp, Block, Expr, ExprKind, Item, ItemKind, PrefixOp, Stmt, Ty};
 use crate::errors::Error;
 use crate::lexer::{Token, TokenKind};
 use std::ops::Range;
 
-pub fn parse(tokens: &[Token<'_>]) -> Result<Vec<ast::Item>, Error> {
+pub fn parse(tokens: &[Token<'_>]) -> Result<Vec<Item>, Error> {
     let mut parser = Parser { tokens, token_idx: 0 };
     let mut items = Vec::new();
 
@@ -20,7 +20,7 @@ struct Parser<'a> {
 }
 
 impl Parser<'_> {
-    fn parse_item(&mut self) -> Result<ast::Item, Error> {
+    fn parse_item(&mut self) -> Result<Item, Error> {
         match self.peek() {
             TokenKind::FnKw => {
                 let (_, fn_range) = self.bump(TokenKind::FnKw);
@@ -45,10 +45,7 @@ impl Parser<'_> {
                 let body = self.parse_block()?;
 
                 let range = fn_range.start..body.range.end;
-                Ok(ast::Item {
-                    kind: ast::ItemKind::Function { name, params, return_ty, body },
-                    range,
-                })
+                Ok(Item { kind: ItemKind::Function { name, params, return_ty, body }, range })
             }
 
             TokenKind::StructKw => {
@@ -69,8 +66,8 @@ impl Parser<'_> {
                 }
                 let (_, r_brace_range) = self.expect(TokenKind::RBrace)?;
 
-                Ok(ast::Item {
-                    kind: ast::ItemKind::Struct { name, fields },
+                Ok(Item {
+                    kind: ItemKind::Struct { name, fields },
                     range: struct_range.start..r_brace_range.end,
                 })
             }
@@ -79,7 +76,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_block(&mut self) -> Result<ast::Block, Error> {
+    fn parse_block(&mut self) -> Result<Block, Error> {
         let (_, l_brace_range) = self.expect(TokenKind::LBrace)?;
         let mut stmts = Vec::new();
         while self.peek() != TokenKind::RBrace {
@@ -87,70 +84,70 @@ impl Parser<'_> {
         }
         let (_, r_brace_range) = self.bump(TokenKind::RBrace);
 
-        Ok(ast::Block { stmts, range: l_brace_range.start..r_brace_range.end })
+        Ok(Block { stmts, range: l_brace_range.start..r_brace_range.end })
     }
 
-    fn parse_stmt(&mut self) -> Result<ast::Stmt, Error> {
+    fn parse_stmt(&mut self) -> Result<Stmt, Error> {
         if self.peek() == TokenKind::LetKw {
             self.expect(TokenKind::LetKw)?;
             let (name, _) = self.expect(TokenKind::Ident)?;
             self.expect(TokenKind::Eq)?;
             let val = self.parse_expr()?;
-            return Ok(ast::Stmt::Let { name, val });
+            return Ok(Stmt::Let { name, val });
         }
 
         let e = self.parse_expr()?;
-        Ok(ast::Stmt::Expr(e))
+        Ok(Stmt::Expr(e))
     }
 
-    fn parse_expr(&mut self) -> Result<ast::Expr, Error> {
+    fn parse_expr(&mut self) -> Result<Expr, Error> {
         self.parse_expr_bp(0)
     }
 
-    fn parse_expr_bp(&mut self, min_bp: u8) -> Result<ast::Expr, Error> {
+    fn parse_expr_bp(&mut self, min_bp: u8) -> Result<Expr, Error> {
         let mut lhs = self.parse_lhs()?;
 
         loop {
             let (op, num_tokens) = match (self.peek(), self.lookahead()) {
-                (TokenKind::Eq, TokenKind::Eq) => (ast::BinaryOp::Eq, 2),
-                (TokenKind::Bang, TokenKind::Eq) => (ast::BinaryOp::NEq, 2),
-                (TokenKind::Lt, TokenKind::Eq) => (ast::BinaryOp::LtEq, 2),
-                (TokenKind::Gt, TokenKind::Eq) => (ast::BinaryOp::GtEq, 2),
-                (TokenKind::Lt, _) => (ast::BinaryOp::Lt, 1),
-                (TokenKind::Gt, _) => (ast::BinaryOp::Gt, 1),
-                (TokenKind::Eq, _) => (ast::BinaryOp::Assign, 1),
-                (TokenKind::Plus, TokenKind::Eq) => (ast::BinaryOp::AddAssign, 2),
-                (TokenKind::Dash, TokenKind::Eq) => (ast::BinaryOp::SubAssign, 2),
-                (TokenKind::Star, TokenKind::Eq) => (ast::BinaryOp::MulAssign, 2),
-                (TokenKind::Slash, TokenKind::Eq) => (ast::BinaryOp::DivAssign, 2),
-                (TokenKind::Plus, _) => (ast::BinaryOp::Add, 1),
-                (TokenKind::Dash, _) => (ast::BinaryOp::Sub, 1),
-                (TokenKind::Star, _) => (ast::BinaryOp::Mul, 1),
-                (TokenKind::Slash, _) => (ast::BinaryOp::Div, 1),
-                (TokenKind::Pretzel, TokenKind::Pretzel) => (ast::BinaryOp::And, 2),
-                (TokenKind::Pipe, TokenKind::Pipe) => (ast::BinaryOp::Or, 2),
+                (TokenKind::Eq, TokenKind::Eq) => (BinaryOp::Eq, 2),
+                (TokenKind::Bang, TokenKind::Eq) => (BinaryOp::NEq, 2),
+                (TokenKind::Lt, TokenKind::Eq) => (BinaryOp::LtEq, 2),
+                (TokenKind::Gt, TokenKind::Eq) => (BinaryOp::GtEq, 2),
+                (TokenKind::Lt, _) => (BinaryOp::Lt, 1),
+                (TokenKind::Gt, _) => (BinaryOp::Gt, 1),
+                (TokenKind::Eq, _) => (BinaryOp::Assign, 1),
+                (TokenKind::Plus, TokenKind::Eq) => (BinaryOp::AddAssign, 2),
+                (TokenKind::Dash, TokenKind::Eq) => (BinaryOp::SubAssign, 2),
+                (TokenKind::Star, TokenKind::Eq) => (BinaryOp::MulAssign, 2),
+                (TokenKind::Slash, TokenKind::Eq) => (BinaryOp::DivAssign, 2),
+                (TokenKind::Plus, _) => (BinaryOp::Add, 1),
+                (TokenKind::Dash, _) => (BinaryOp::Sub, 1),
+                (TokenKind::Star, _) => (BinaryOp::Mul, 1),
+                (TokenKind::Slash, _) => (BinaryOp::Div, 1),
+                (TokenKind::Pretzel, TokenKind::Pretzel) => (BinaryOp::And, 2),
+                (TokenKind::Pipe, TokenKind::Pipe) => (BinaryOp::Or, 2),
                 _ => break,
             };
 
             let bp = match op {
-                ast::BinaryOp::Eq
-                | ast::BinaryOp::NEq
-                | ast::BinaryOp::Lt
-                | ast::BinaryOp::Gt
-                | ast::BinaryOp::LtEq
-                | ast::BinaryOp::GtEq => 4,
+                BinaryOp::Eq
+                | BinaryOp::NEq
+                | BinaryOp::Lt
+                | BinaryOp::Gt
+                | BinaryOp::LtEq
+                | BinaryOp::GtEq => 4,
 
-                ast::BinaryOp::Assign
-                | ast::BinaryOp::AddAssign
-                | ast::BinaryOp::SubAssign
-                | ast::BinaryOp::MulAssign
-                | ast::BinaryOp::DivAssign => 1,
+                BinaryOp::Assign
+                | BinaryOp::AddAssign
+                | BinaryOp::SubAssign
+                | BinaryOp::MulAssign
+                | BinaryOp::DivAssign => 1,
 
-                ast::BinaryOp::Add | ast::BinaryOp::Sub => 5,
-                ast::BinaryOp::Mul | ast::BinaryOp::Div => 6,
+                BinaryOp::Add | BinaryOp::Sub => 5,
+                BinaryOp::Mul | BinaryOp::Div => 6,
 
-                ast::BinaryOp::And => 3,
-                ast::BinaryOp::Or => 2,
+                BinaryOp::And => 3,
+                BinaryOp::Or => 2,
             };
 
             if bp < min_bp {
@@ -163,8 +160,8 @@ impl Parser<'_> {
 
             let rhs = self.parse_expr_bp(bp + 1)?;
             let range = lhs.range.start..rhs.range.end;
-            lhs = ast::Expr {
-                kind: ast::ExprKind::Binary { lhs: Box::new(lhs), rhs: Box::new(rhs), op },
+            lhs = Expr {
+                kind: ExprKind::Binary { lhs: Box::new(lhs), rhs: Box::new(rhs), op },
                 range,
             };
         }
@@ -172,25 +169,22 @@ impl Parser<'_> {
         Ok(lhs)
     }
 
-    fn parse_lhs(&mut self) -> Result<ast::Expr, Error> {
+    fn parse_lhs(&mut self) -> Result<Expr, Error> {
         match self.peek() {
             TokenKind::Number => {
                 let (text, range) = self.bump(TokenKind::Number);
-                Ok(ast::Expr { kind: ast::ExprKind::IntLiteral(text.parse().unwrap()), range })
+                Ok(Expr { kind: ExprKind::IntLiteral(text.parse().unwrap()), range })
             }
             TokenKind::String => {
                 let (text, range) = self.bump(TokenKind::String);
-                Ok(ast::Expr {
-                    kind: ast::ExprKind::StringLiteral(text[1..text.len() - 1].to_string()),
+                Ok(Expr {
+                    kind: ExprKind::StringLiteral(text[1..text.len() - 1].to_string()),
                     range,
                 })
             }
             TokenKind::Char => {
                 let (text, range) = self.bump(TokenKind::Char);
-                Ok(ast::Expr {
-                    kind: ast::ExprKind::CharLiteral(text[1..text.len() - 1].to_string()),
-                    range,
-                })
+                Ok(Expr { kind: ExprKind::CharLiteral(text[1..text.len() - 1].to_string()), range })
             }
             TokenKind::Ident => {
                 if self.lookahead() == TokenKind::LParen {
@@ -198,29 +192,26 @@ impl Parser<'_> {
                 }
 
                 let (text, range) = self.bump(TokenKind::Ident);
-                Ok(ast::Expr { kind: ast::ExprKind::Variable(text), range })
+                Ok(Expr { kind: ExprKind::Variable(text), range })
             }
             TokenKind::LParen => {
                 let (_, l_range) = self.bump(TokenKind::LParen);
                 let e = self.parse_expr()?;
                 let (_, r_range) = self.expect(TokenKind::RParen)?;
-                Ok(ast::Expr { kind: e.kind, range: l_range.start..r_range.end })
+                Ok(Expr { kind: e.kind, range: l_range.start..r_range.end })
             }
             TokenKind::Dash => {
                 let (_, dash_range) = self.bump(TokenKind::Dash);
                 let e = self.parse_lhs()?;
                 let range = dash_range.start..e.range.end;
-                Ok(ast::Expr {
-                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::Neg },
-                    range,
-                })
+                Ok(Expr { kind: ExprKind::Prefix { expr: Box::new(e), op: PrefixOp::Neg }, range })
             }
             TokenKind::Star => {
                 let (_, star_range) = self.bump(TokenKind::Star);
                 let e = self.parse_lhs()?;
                 let range = star_range.start..e.range.end;
-                Ok(ast::Expr {
-                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::Deref },
+                Ok(Expr {
+                    kind: ExprKind::Prefix { expr: Box::new(e), op: PrefixOp::Deref },
                     range,
                 })
             }
@@ -228,8 +219,8 @@ impl Parser<'_> {
                 let (_, pretzel_range) = self.bump(TokenKind::Pretzel);
                 let e = self.parse_lhs()?;
                 let range = pretzel_range.start..e.range.end;
-                Ok(ast::Expr {
-                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::AddrOf },
+                Ok(Expr {
+                    kind: ExprKind::Prefix { expr: Box::new(e), op: PrefixOp::AddrOf },
                     range,
                 })
             }
@@ -237,7 +228,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_call(&mut self) -> Result<ast::Expr, Error> {
+    fn parse_call(&mut self) -> Result<Expr, Error> {
         let (name, range) = self.bump(TokenKind::Ident);
         self.bump(TokenKind::LParen);
 
@@ -251,26 +242,23 @@ impl Parser<'_> {
 
         let (_, r_paren_range) = self.expect(TokenKind::RParen)?;
 
-        Ok(ast::Expr {
-            kind: ast::ExprKind::Call { name, args },
-            range: range.start..r_paren_range.end,
-        })
+        Ok(Expr { kind: ExprKind::Call { name, args }, range: range.start..r_paren_range.end })
     }
 
-    fn parse_ty(&mut self) -> Result<ast::Ty, Error> {
+    fn parse_ty(&mut self) -> Result<Ty, Error> {
         match self.peek() {
             TokenKind::VoidKw => {
                 self.bump(TokenKind::VoidKw);
-                Ok(ast::Ty::Void)
+                Ok(Ty::Void)
             }
             TokenKind::Ident => {
                 let (name, _) = self.bump(TokenKind::Ident);
-                Ok(ast::Ty::Named(name))
+                Ok(Ty::Named(name))
             }
             TokenKind::Star => {
                 self.bump(TokenKind::Star);
                 let ty = self.parse_ty()?;
-                Ok(ast::Ty::Pointer(Box::new(ty)))
+                Ok(Ty::Pointer(Box::new(ty)))
             }
             _ => Err(self.error("type")),
         }
