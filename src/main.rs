@@ -25,11 +25,14 @@ fn main() -> io::Result<()> {
                 for item in &items {
                     if let didactic_eureka::ast::Item::Function { body, .. } = item {
                         let mut ctx = didactic_eureka::body::LowerCtx::default();
-                        let _ = dbg!(ctx.lower_block(body));
+                        match dbg!(ctx.lower_block(body)) {
+                            Ok(_) => {}
+                            Err(e) => didactic_eureka::errors::print_error(&e, &input),
+                        }
                     }
                 }
             }
-            Err(_) => {}
+            Err(e) => didactic_eureka::errors::print_error(&e, &input),
         }
 
         input.clear();
