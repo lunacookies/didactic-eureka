@@ -1,21 +1,23 @@
 use logos::Logos;
+use std::ops::Range;
 
 pub fn lex(text: &str) -> Vec<Token<'_>> {
     let mut tokens = Vec::new();
     let mut lexer = TokenKind::lexer(text);
 
     while let Some(kind) = lexer.next() {
-        let token = Token { text: lexer.slice(), kind };
+        let token = Token { text: lexer.slice(), kind, range: lexer.span() };
         tokens.push(token);
     }
 
     tokens
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Token<'a> {
     pub text: &'a str,
     pub kind: TokenKind,
+    pub range: Range<usize>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Logos)]

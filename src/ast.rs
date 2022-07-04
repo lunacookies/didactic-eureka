@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 #[derive(Debug)]
 pub enum Item {
     Function { name: String, params: Vec<(String, Ty)>, return_ty: Ty, body: Block },
@@ -14,7 +16,13 @@ pub enum Stmt {
 }
 
 #[derive(Debug)]
-pub enum Expr {
+pub struct Expr {
+    pub kind: ExprKind,
+    pub range: Range<usize>,
+}
+
+#[derive(Debug)]
+pub enum ExprKind {
     IntLiteral(u32),
     StringLiteral(String),
     CharLiteral(String),

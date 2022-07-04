@@ -44,15 +44,20 @@ impl LowerCtx {
     }
 
     fn lower_expr(&self, ast: &ast::Expr) -> Result<Expr, Error> {
-        let e = match ast {
-            ast::Expr::IntLiteral(n) => Expr::IntLiteral(*n),
-            ast::Expr::StringLiteral(s) => Expr::StringLiteral(s.clone()),
-            ast::Expr::CharLiteral(c) => Expr::CharLiteral(c.clone()),
-            ast::Expr::Variable(name) => match self.variables.get(name) {
+        let e = match &ast.kind {
+            ast::ExprKind::IntLiteral(n) => Expr::IntLiteral(*n),
+            ast::ExprKind::StringLiteral(s) => Expr::StringLiteral(s.clone()),
+            ast::ExprKind::CharLiteral(c) => Expr::CharLiteral(c.clone()),
+            ast::ExprKind::Variable(name) => match self.variables.get(name) {
                 Some(id) => Expr::Variable(*id),
-                None => return Err(Error { message: format!("undefined variable `{name}`") }),
+                None => {
+                    return Err(Error {
+                        message: format!("undefined variable `{name}`"),
+                        range: ast.range.clone(),
+                    })
+                }
             },
-            ast::Expr::Call { name, args } => {
+            ast::ExprKind::Call { name, args } => {
                 let mut lowered_args = Vec::new();
 
                 for arg in args {
@@ -61,12 +66,12 @@ impl LowerCtx {
 
                 Expr::Call { name: name.clone(), args: lowered_args }
             }
-            ast::Expr::Binary { lhs, rhs, op } => Expr::Binary {
+            ast::ExprKind::Binary { lhs, rhs, op } => Expr::Binary {
                 lhs: Box::new(self.lower_expr(lhs)?),
                 rhs: Box::new(self.lower_expr(rhs)?),
                 op: *op,
             },
-            ast::Expr::Prefix { expr, op } => {
+            ast::ExprKind::Prefix { expr, op } => {
                 Expr::Prefix { expr: Box::new(self.lower_expr(expr)?), op: *op }
             }
         };

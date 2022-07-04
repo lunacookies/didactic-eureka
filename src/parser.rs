@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::errors::Error;
 use crate::lexer::{Token, TokenKind};
+use std::ops::Range;
 
 pub fn parse(tokens: &[Token<'_>]) -> Result<Vec<ast::Item>, Error> {
     let mut parser = Parser { tokens, token_idx: 0 };
@@ -24,12 +25,12 @@ impl Parser<'_> {
             TokenKind::FnKw => {
                 self.bump(TokenKind::FnKw);
 
-                let name = self.expect(TokenKind::Ident)?;
+                let (name, _) = self.expect(TokenKind::Ident)?;
 
                 self.expect(TokenKind::LParen)?;
                 let mut params = Vec::new();
                 while self.peek() != TokenKind::RParen {
-                    let name = self.expect(TokenKind::Ident)?;
+                    let (name, _) = self.expect(TokenKind::Ident)?;
                     let ty = self.parse_ty()?;
                     params.push((name, ty));
 
@@ -49,12 +50,12 @@ impl Parser<'_> {
             TokenKind::StructKw => {
                 self.bump(TokenKind::StructKw);
 
-                let name = self.expect(TokenKind::Ident)?;
+                let (name, _) = self.expect(TokenKind::Ident)?;
 
                 self.expect(TokenKind::LBrace)?;
                 let mut fields = Vec::new();
                 while self.peek() != TokenKind::RBrace {
-                    let name = self.expect(TokenKind::Ident)?;
+                    let (name, _) = self.expect(TokenKind::Ident)?;
                     let ty = self.parse_ty()?;
                     fields.push((name, ty));
 
@@ -85,7 +86,7 @@ impl Parser<'_> {
     fn parse_stmt(&mut self) -> Result<ast::Stmt, Error> {
         if self.peek() == TokenKind::LetKw {
             self.expect(TokenKind::LetKw)?;
-            let name = self.expect(TokenKind::Ident)?;
+            let (name, _) = self.expect(TokenKind::Ident)?;
             self.expect(TokenKind::Eq)?;
             let val = self.parse_expr()?;
             return Ok(ast::Stmt::Let { name, val });
@@ -154,7 +155,11 @@ impl Parser<'_> {
             }
 
             let rhs = self.parse_expr_bp(bp + 1)?;
-            lhs = ast::Expr::Binary { lhs: Box::new(lhs), rhs: Box::new(rhs), op };
+            let range = lhs.range.start..rhs.range.end;
+            lhs = ast::Expr {
+                kind: ast::ExprKind::Binary { lhs: Box::new(lhs), rhs: Box::new(rhs), op },
+                range,
+            };
         }
 
         Ok(lhs)
@@ -163,52 +168,70 @@ impl Parser<'_> {
     fn parse_lhs(&mut self) -> Result<ast::Expr, Error> {
         match self.peek() {
             TokenKind::Number => {
-                let text = self.bump(TokenKind::Number);
-                Ok(ast::Expr::IntLiteral(text.parse().unwrap()))
+                let (text, range) = self.bump(TokenKind::Number);
+                Ok(ast::Expr { kind: ast::ExprKind::IntLiteral(text.parse().unwrap()), range })
             }
             TokenKind::String => {
-                let text = self.bump(TokenKind::String);
-                Ok(ast::Expr::StringLiteral(text[1..text.len() - 1].to_string()))
+                let (text, range) = self.bump(TokenKind::String);
+                Ok(ast::Expr {
+                    kind: ast::ExprKind::StringLiteral(text[1..text.len() - 1].to_string()),
+                    range,
+                })
             }
             TokenKind::Char => {
-                let text = self.bump(TokenKind::Char);
-                Ok(ast::Expr::CharLiteral(text[1..text.len() - 1].to_string()))
+                let (text, range) = self.bump(TokenKind::Char);
+                Ok(ast::Expr {
+                    kind: ast::ExprKind::CharLiteral(text[1..text.len() - 1].to_string()),
+                    range,
+                })
             }
             TokenKind::Ident => {
                 if self.lookahead() == TokenKind::LParen {
                     return self.parse_call();
                 }
 
-                let text = self.bump(TokenKind::Ident);
-                Ok(ast::Expr::Variable(text))
+                let (text, range) = self.bump(TokenKind::Ident);
+                Ok(ast::Expr { kind: ast::ExprKind::Variable(text), range })
             }
             TokenKind::LParen => {
-                self.bump(TokenKind::LParen);
+                let (_, l_range) = self.bump(TokenKind::LParen);
                 let e = self.parse_expr()?;
-                self.expect(TokenKind::RParen)?;
-                Ok(e)
+                let (_, r_range) = self.expect(TokenKind::RParen)?;
+                Ok(ast::Expr { kind: e.kind, range: l_range.start..r_range.end })
             }
             TokenKind::Dash => {
-                self.bump(TokenKind::Dash);
+                let (_, dash_range) = self.bump(TokenKind::Dash);
                 let e = self.parse_lhs()?;
-                Ok(ast::Expr::Prefix { expr: Box::new(e), op: ast::PrefixOp::Neg })
+                let range = dash_range.start..e.range.end;
+                Ok(ast::Expr {
+                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::Neg },
+                    range,
+                })
             }
             TokenKind::Star => {
-                self.bump(TokenKind::Star);
+                let (_, star_range) = self.bump(TokenKind::Star);
                 let e = self.parse_lhs()?;
-                Ok(ast::Expr::Prefix { expr: Box::new(e), op: ast::PrefixOp::Deref })
+                let range = star_range.start..e.range.end;
+                Ok(ast::Expr {
+                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::Deref },
+                    range,
+                })
             }
             TokenKind::Pretzel => {
-                self.bump(TokenKind::Pretzel);
+                let (_, pretzel_range) = self.bump(TokenKind::Pretzel);
                 let e = self.parse_lhs()?;
-                Ok(ast::Expr::Prefix { expr: Box::new(e), op: ast::PrefixOp::AddrOf })
+                let range = pretzel_range.start..e.range.end;
+                Ok(ast::Expr {
+                    kind: ast::ExprKind::Prefix { expr: Box::new(e), op: ast::PrefixOp::AddrOf },
+                    range,
+                })
             }
             _ => Err(self.error("expression")),
         }
     }
 
     fn parse_call(&mut self) -> Result<ast::Expr, Error> {
-        let name = self.bump(TokenKind::Ident);
+        let (name, range) = self.bump(TokenKind::Ident);
         self.bump(TokenKind::LParen);
 
         let mut args = Vec::new();
@@ -219,9 +242,12 @@ impl Parser<'_> {
             }
         }
 
-        self.expect(TokenKind::RParen)?;
+        let (_, r_paren_range) = self.expect(TokenKind::RParen)?;
 
-        Ok(ast::Expr::Call { name, args })
+        Ok(ast::Expr {
+            kind: ast::ExprKind::Call { name, args },
+            range: range.start..r_paren_range.end,
+        })
     }
 
     fn parse_ty(&mut self) -> Result<ast::Ty, Error> {
@@ -231,7 +257,7 @@ impl Parser<'_> {
                 Ok(ast::Ty::Void)
             }
             TokenKind::Ident => {
-                let name = self.bump(TokenKind::Ident);
+                let (name, _) = self.bump(TokenKind::Ident);
                 Ok(ast::Ty::Named(name))
             }
             TokenKind::Star => {
@@ -243,7 +269,7 @@ impl Parser<'_> {
         }
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<String, Error> {
+    fn expect(&mut self, expected: TokenKind) -> Result<(String, Range<usize>), Error> {
         let actual = self.peek();
 
         if expected == actual {
@@ -255,18 +281,23 @@ impl Parser<'_> {
 
     fn error(&self, expected: &str) -> Error {
         let actual = self.peek();
-        Error { message: format!("expected {expected} but got {actual:?}") }
+        let range = match self.tokens.get(self.token_idx) {
+            Some(tok) => tok.range.clone(),
+            None => self.tokens[self.token_idx - 1].range.clone(),
+        };
+
+        Error { message: format!("expected {expected} but got {actual:?}"), range }
     }
 
-    fn bump(&mut self, kind: TokenKind) -> String {
+    fn bump(&mut self, kind: TokenKind) -> (String, Range<usize>) {
         assert_eq!(self.peek(), kind);
         self.bump_any()
     }
 
-    fn bump_any(&mut self) -> String {
-        let text = self.tokens[self.token_idx].text;
+    fn bump_any(&mut self) -> (String, Range<usize>) {
+        let tok = &self.tokens[self.token_idx];
         self.token_idx += 1;
-        text.to_string()
+        (tok.text.to_string(), tok.range.clone())
     }
 
     fn peek(&self) -> TokenKind {
