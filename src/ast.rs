@@ -19,11 +19,12 @@ pub enum Expr {
     StringLiteral(String),
     CharLiteral(String),
     Variable(String),
+    Call { name: String, args: Vec<Expr> },
     Binary { lhs: Box<Expr>, rhs: Box<Expr>, op: BinaryOp },
     Prefix { expr: Box<Expr>, op: PrefixOp },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -44,7 +45,7 @@ pub enum BinaryOp {
     GtEq,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrefixOp {
     Neg,
     Deref,

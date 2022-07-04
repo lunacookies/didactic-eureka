@@ -181,6 +181,10 @@ impl Parser<'_> {
                 Ok(ast::Expr::CharLiteral(text[1..text.len() - 1].to_string()))
             }
             TokenKind::Ident => {
+                if self.lookahead() == TokenKind::LParen {
+                    return self.parse_call();
+                }
+
                 let text = self.bump(TokenKind::Ident);
                 Ok(ast::Expr::Variable(text))
             }
@@ -207,6 +211,23 @@ impl Parser<'_> {
             }
             _ => Err(self.error("expression")),
         }
+    }
+
+    fn parse_call(&mut self) -> ParseResult<ast::Expr> {
+        let name = self.bump(TokenKind::Ident);
+        self.bump(TokenKind::LParen);
+
+        let mut args = Vec::new();
+        while self.peek() != TokenKind::RParen {
+            args.push(self.parse_expr()?);
+            if self.peek() != TokenKind::RParen {
+                self.expect(TokenKind::Comma)?;
+            }
+        }
+
+        self.expect(TokenKind::RParen)?;
+
+        Ok(ast::Expr::Call { name, args })
     }
 
     fn parse_ty(&mut self) -> ParseResult<ast::Ty> {
