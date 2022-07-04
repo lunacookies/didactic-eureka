@@ -1,0 +1,48 @@
+# didactic-eureka
+
+## todo
+
+- [ ] finish first end-to-end prototype
+  - [ ] implement typechecking for initial language subset
+  - [ ] implement C code generation for initial language subset
+    - make sure to have underflow and overflow checks
+  - [ ] vim syntax highlighting
+  - [ ] vim `:make` compatible diagnostic formatting
+- [ ] add enough language features to make writing useful code _possible_
+  - [ ] struct field access
+    - make sure to support through pointer
+  - [ ] `return`, `break` and `continue`
+    - don’t worry about checking whether every path through a function returns
+  - [ ] `bool`, `true` and `false`
+  - [ ] infinite loops and while loops
+  - [ ] length-prefixed slices with bounds-checked indexing
+  - [ ] string literal escapes
+  - [ ] struct literals
+  - [ ] bitwise or, and, not, xor
+  - [ ] C-like enums lowered to integers
+  - [ ] `malloc` and `free` as special syntax
+  - [ ] debug printing as special syntax
+  - [ ] unchecked external C functions
+- [ ] write some tiny demo programs to make sure everything works
+- [ ] add enough language features to make writing code an alright experience
+  - [ ] format strings
+  - [ ] methods
+  - [ ] nullable types
+    - look at Zig and Hare for inspiration
+  - [ ] some form of a `switch`-like construct
+  - [ ] some form of unions
+    - could be unchecked unions, Rust-like extended `enum`s with payloads, Hare-like anonymous tagged unions
+  - [ ] enough of a generics/templates system to allow making collection types and nothing else
+  - [ ] Zig-like tests
+  - [ ] basic multi-file support
+- [ ] self hosting
+- [ ] further features ...
+  - [ ] replace dedicated `malloc` and `free` syntax with Zig-like custom allocators
+  - [ ] immutable variables and pointers
+  - [ ] module system
+  - [ ] unused warnings
+  - [ ] actually check if all paths through a function return a value
+  - [ ] documentation generator
+  - [ ] autoformatter
+  - [ ] custom TUI editor with language intelligence
+  - [ ] LSP server
