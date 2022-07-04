@@ -69,7 +69,7 @@ pub enum PrefixOp {
     AddrOf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Ty {
     Void,
     Named(String),

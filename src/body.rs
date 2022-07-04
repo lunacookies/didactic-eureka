@@ -21,9 +21,10 @@ pub enum Stmt {
     Expr(Id<Expr>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct VariableDef {
     pub val: Id<Expr>,
+    pub ty: ast::Ty,
 }
 
 #[derive(Debug)]
@@ -65,22 +66,34 @@ impl LowerCtx<'_> {
     fn lower_stmt(&mut self, ast: &ast::Stmt) -> Result<Stmt, Error> {
         match ast {
             ast::Stmt::Let { name, val } => {
-                let val = self.lower_expr(val)?;
-                let id = self.body_db.variable_defs.alloc(VariableDef { val });
+                let (val, ty) = self.lower_expr(val)?;
+                let id = self.body_db.variable_defs.alloc(VariableDef { val, ty });
                 self.variables.insert(name.clone(), id);
                 Ok(Stmt::Let(id))
             }
-            ast::Stmt::Expr(e) => Ok(Stmt::Expr(self.lower_expr(e)?)),
+            ast::Stmt::Expr(e) => {
+                let (e, _) = self.lower_expr(e)?;
+                Ok(Stmt::Expr(e))
+            }
         }
     }
 
-    fn lower_expr(&mut self, ast: &ast::Expr) -> Result<Id<Expr>, Error> {
-        let e = match &ast.kind {
-            ast::ExprKind::IntLiteral(n) => Expr::IntLiteral(*n),
-            ast::ExprKind::StringLiteral(s) => Expr::StringLiteral(s.clone()),
-            ast::ExprKind::CharLiteral(c) => Expr::CharLiteral(c.clone()),
+    fn lower_expr(&mut self, ast: &ast::Expr) -> Result<(Id<Expr>, ast::Ty), Error> {
+        let (e, ty) = match &ast.kind {
+            ast::ExprKind::IntLiteral(n) => {
+                (Expr::IntLiteral(*n), ast::Ty::Named("int".to_string()))
+            }
+            ast::ExprKind::StringLiteral(s) => {
+                (Expr::StringLiteral(s.clone()), ast::Ty::Named("string".to_string()))
+            }
+            ast::ExprKind::CharLiteral(c) => {
+                (Expr::CharLiteral(c.clone()), ast::Ty::Named("char".to_string()))
+            }
             ast::ExprKind::Variable(name) => match self.variables.get(name) {
-                Some(id) => Expr::Variable(*id),
+                Some(id) => {
+                    let ty = self.body_db.variable_defs[*id].ty.clone();
+                    (Expr::Variable(*id), ty)
+                }
                 None => {
                     return Err(Error {
                         message: format!("undefined variable `{name}`"),
@@ -89,16 +102,17 @@ impl LowerCtx<'_> {
                 }
             },
             ast::ExprKind::Call { name, args } => {
-                match self.index.get(name) {
-                    Some(Item::Function { params, .. }) => {
+                let (params, return_ty) = match self.index.get(name) {
+                    Some(Item::Function { params, return_ty }) => {
                         let expected_arity = params.len();
                         let actual_arity = args.len();
                         if expected_arity != actual_arity {
                             return Err(Error {
                                 message: format!("expected {expected_arity} arguments to `{name}`, got {actual_arity}"),
-                                range:ast.range.clone()
+                                range:    ast.range.clone()
                             });
                         }
+                        (params, return_ty)
                     }
                     Some(Item::Struct { .. }) => {
                         return Err(Error {
@@ -112,27 +126,107 @@ impl LowerCtx<'_> {
                             range: ast.range.clone(),
                         })
                     }
-                }
+                };
 
                 let mut lowered_args = Vec::new();
 
-                for arg in args {
-                    lowered_args.push(self.lower_expr(arg)?);
+                for (arg, (_, expected_ty)) in args.iter().zip(params) {
+                    let (arg, actual_ty) = self.lower_expr(arg)?;
+                    self.unify_tys(
+                        expected_ty.clone(),
+                        actual_ty,
+                        self.body_db.expr_ranges[&arg].clone(),
+                    )?;
+                    lowered_args.push(arg);
                 }
 
-                Expr::Call { name: name.clone(), args: lowered_args }
+                (Expr::Call { name: name.clone(), args: lowered_args }, return_ty.clone())
             }
             ast::ExprKind::Binary { lhs, rhs, op } => {
-                Expr::Binary { lhs: self.lower_expr(lhs)?, rhs: self.lower_expr(rhs)?, op: *op }
+                let (lhs, _) = self.lower_expr(lhs)?;
+                let (rhs, _) = self.lower_expr(rhs)?;
+                let ty = match op {
+                    ast::BinaryOp::Add
+                    | ast::BinaryOp::Sub
+                    | ast::BinaryOp::Mul
+                    | ast::BinaryOp::Div => ast::Ty::Named("int".to_string()),
+                    ast::BinaryOp::Assign
+                    | ast::BinaryOp::AddAssign
+                    | ast::BinaryOp::SubAssign
+                    | ast::BinaryOp::MulAssign
+                    | ast::BinaryOp::DivAssign => ast::Ty::Void,
+                    ast::BinaryOp::Eq
+                    | ast::BinaryOp::NEq
+                    | ast::BinaryOp::And
+                    | ast::BinaryOp::Or
+                    | ast::BinaryOp::Lt
+                    | ast::BinaryOp::Gt
+                    | ast::BinaryOp::LtEq
+                    | ast::BinaryOp::GtEq => ast::Ty::Named("bool".to_string()),
+                };
+
+                (Expr::Binary { lhs, rhs, op: *op }, ty)
             }
             ast::ExprKind::Prefix { expr, op } => {
-                Expr::Prefix { expr: self.lower_expr(expr)?, op: *op }
+                let (expr, ty) = self.lower_expr(expr)?;
+                let ty = match op {
+                    ast::PrefixOp::Neg => {
+                        self.unify_tys(
+                            ast::Ty::Named("int".to_string()),
+                            ty,
+                            self.body_db.expr_ranges[&expr].clone(),
+                        )?;
+                        ast::Ty::Named("int".to_string())
+                    }
+                    ast::PrefixOp::Deref => match ty {
+                        ast::Ty::Pointer(inner) => *inner,
+                        _ => {
+                            return Err(Error {
+                                message: format!(
+                                    "cannot dereference non-pointer type, found {}",
+                                    print_ty(ty)
+                                ),
+                                range: self.body_db.expr_ranges[&expr].clone(),
+                            })
+                        }
+                    },
+                    ast::PrefixOp::AddrOf => ast::Ty::Pointer(Box::new(ty)),
+                };
+                (Expr::Prefix { expr, op: *op }, ty)
             }
         };
 
         let id = self.body_db.exprs.alloc(e);
         self.body_db.expr_ranges.insert(id, ast.range.clone());
 
-        Ok(id)
+        Ok((id, ty))
+    }
+
+    fn unify_tys(
+        &self,
+        expected: ast::Ty,
+        actual: ast::Ty,
+        range: Range<usize>,
+    ) -> Result<(), Error> {
+        if expected == actual {
+            return Ok(());
+        }
+
+        Err(Error {
+            message: format!(
+                "mismatched types: expected {}, found {}",
+                print_ty(expected),
+                print_ty(actual)
+            ),
+            range,
+        })
+    }
+}
+
+fn print_ty(ty: ast::Ty) -> String {
+    match ty {
+        ast::Ty::Void => "void".to_string(),
+        ast::Ty::Named(s) => s,
+        ast::Ty::Pointer(ty) => format!("*{}", print_ty(*ty)),
     }
 }

@@ -11,13 +11,12 @@ pub fn index(ast: &[ast::Item]) -> Result<Index, Error> {
     for item_ast in ast {
         let (name, item) = match &item_ast.kind {
             ast::ItemKind::Function { name, params, return_ty, body: _ } => {
-                let params = params.iter().map(|(name, ty)| (name.clone(), lower_ty(ty))).collect();
-                let return_ty = lower_ty(return_ty);
-                (name.clone(), Item::Function { params, return_ty })
+                let params = params.iter().map(|(name, ty)| (name.clone(), ty.clone())).collect();
+                (name.clone(), Item::Function { params, return_ty: return_ty.clone() })
             }
 
             ast::ItemKind::Struct { name, fields } => {
-                let fields = fields.iter().map(|(name, ty)| (name.clone(), lower_ty(ty))).collect();
+                let fields = fields.iter().map(|(name, ty)| (name.clone(), ty.clone())).collect();
                 (name.clone(), Item::Struct { fields })
             }
         };
@@ -35,25 +34,10 @@ pub fn index(ast: &[ast::Item]) -> Result<Index, Error> {
     Ok(Index(map))
 }
 
-fn lower_ty(ty: &ast::Ty) -> Ty {
-    match ty {
-        ast::Ty::Void => Ty::Void,
-        ast::Ty::Named(name) => Ty::Named(name.clone()),
-        ast::Ty::Pointer(ty) => Ty::Pointer(Box::new(lower_ty(ty))),
-    }
-}
-
 #[derive(Debug)]
 pub enum Item {
-    Function { params: Vec<(String, Ty)>, return_ty: Ty },
-    Struct { fields: Vec<(String, Ty)> },
-}
-
-#[derive(Debug)]
-pub enum Ty {
-    Void,
-    Named(String),
-    Pointer(Box<Ty>),
+    Function { params: Vec<(String, ast::Ty)>, return_ty: ast::Ty },
+    Struct { fields: Vec<(String, ast::Ty)> },
 }
 
 impl Index {
