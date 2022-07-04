@@ -3,25 +3,27 @@ use crate::errors::Error;
 use crate::index::{Index, Item};
 use id_arena::{Arena, Id};
 use std::collections::HashMap;
+use std::ops::Range;
 
 #[derive(Debug, Default)]
 pub struct BodyDb {
-    exprs: Arena<Expr>,
-    variable_defs: Arena<VariableDef>,
+    pub(crate) exprs: Arena<Expr>,
+    pub(crate) expr_ranges: HashMap<Id<Expr>, Range<usize>>,
+    pub(crate) variable_defs: Arena<VariableDef>,
 }
 
 #[derive(Debug)]
 pub struct Block(pub Vec<Stmt>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Stmt {
     Let(Id<VariableDef>),
     Expr(Id<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VariableDef {
-    val: Id<Expr>,
+    pub val: Id<Expr>,
 }
 
 #[derive(Debug)]
@@ -49,7 +51,7 @@ struct LowerCtx<'a> {
     variables: HashMap<String, Id<VariableDef>>,
 }
 
-impl<'a> LowerCtx<'a> {
+impl LowerCtx<'_> {
     fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
         let mut stmts = Vec::new();
 
@@ -128,6 +130,9 @@ impl<'a> LowerCtx<'a> {
             }
         };
 
-        Ok(self.body_db.exprs.alloc(e))
+        let id = self.body_db.exprs.alloc(e);
+        self.body_db.expr_ranges.insert(id, ast.range.clone());
+
+        Ok(id)
     }
 }
