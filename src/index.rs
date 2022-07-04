@@ -1,28 +1,38 @@
 use crate::ast;
+use crate::errors::Error;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Index(HashMap<String, Item>);
 
-pub fn index(ast: &[ast::Item]) -> Index {
+pub fn index(ast: &[ast::Item]) -> Result<Index, Error> {
     let mut map = HashMap::new();
 
-    for item in ast {
-        match item {
-            ast::Item::Function { name, params, return_ty, body: _ } => {
+    for item_ast in ast {
+        let (name, item) = match &item_ast.kind {
+            ast::ItemKind::Function { name, params, return_ty, body: _ } => {
                 let params = params.iter().map(|(name, ty)| (name.clone(), lower_ty(ty))).collect();
                 let return_ty = lower_ty(return_ty);
-                map.insert(name.clone(), Item::Function { params, return_ty });
+                (name.clone(), Item::Function { params, return_ty })
             }
 
-            ast::Item::Struct { name, fields } => {
+            ast::ItemKind::Struct { name, fields } => {
                 let fields = fields.iter().map(|(name, ty)| (name.clone(), lower_ty(ty))).collect();
-                map.insert(name.clone(), Item::Struct { fields });
+                (name.clone(), Item::Struct { fields })
             }
+        };
+
+        if map.contains_key(&name) {
+            return Err(Error {
+                message: format!("`{name}` already defined"),
+                range: item_ast.range.clone(),
+            });
         }
+
+        map.insert(name, item);
     }
 
-    Index(map)
+    Ok(Index(map))
 }
 
 fn lower_ty(ty: &ast::Ty) -> Ty {

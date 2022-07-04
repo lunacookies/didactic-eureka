@@ -23,7 +23,7 @@ impl Parser<'_> {
     fn parse_item(&mut self) -> Result<ast::Item, Error> {
         match self.peek() {
             TokenKind::FnKw => {
-                self.bump(TokenKind::FnKw);
+                let (_, fn_range) = self.bump(TokenKind::FnKw);
 
                 let (name, _) = self.expect(TokenKind::Ident)?;
 
@@ -44,11 +44,15 @@ impl Parser<'_> {
 
                 let body = self.parse_block()?;
 
-                Ok(ast::Item::Function { name, params, return_ty, body })
+                let range = fn_range.start..body.range.end;
+                Ok(ast::Item {
+                    kind: ast::ItemKind::Function { name, params, return_ty, body },
+                    range,
+                })
             }
 
             TokenKind::StructKw => {
-                self.bump(TokenKind::StructKw);
+                let (_, struct_range) = self.bump(TokenKind::StructKw);
 
                 let (name, _) = self.expect(TokenKind::Ident)?;
 
@@ -63,9 +67,12 @@ impl Parser<'_> {
                         self.expect(TokenKind::Comma)?;
                     }
                 }
-                self.expect(TokenKind::RBrace)?;
+                let (_, r_brace_range) = self.expect(TokenKind::RBrace)?;
 
-                Ok(ast::Item::Struct { name, fields })
+                Ok(ast::Item {
+                    kind: ast::ItemKind::Struct { name, fields },
+                    range: struct_range.start..r_brace_range.end,
+                })
             }
 
             _ => Err(self.error("item")),
@@ -73,14 +80,14 @@ impl Parser<'_> {
     }
 
     fn parse_block(&mut self) -> Result<ast::Block, Error> {
-        self.expect(TokenKind::LBrace)?;
+        let (_, l_brace_range) = self.expect(TokenKind::LBrace)?;
         let mut stmts = Vec::new();
         while self.peek() != TokenKind::RBrace {
             stmts.push(self.parse_stmt()?);
         }
-        self.bump(TokenKind::RBrace);
+        let (_, r_brace_range) = self.bump(TokenKind::RBrace);
 
-        Ok(ast::Block(stmts))
+        Ok(ast::Block { stmts, range: l_brace_range.start..r_brace_range.end })
     }
 
     fn parse_stmt(&mut self) -> Result<ast::Stmt, Error> {

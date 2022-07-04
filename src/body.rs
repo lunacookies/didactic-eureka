@@ -24,7 +24,7 @@ impl<'a> LowerCtx<'a> {
     pub fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
         let mut stmts = Vec::new();
 
-        for stmt in &ast.0 {
+        for stmt in &ast.stmts {
             stmts.push(self.lower_stmt(stmt)?);
         }
 

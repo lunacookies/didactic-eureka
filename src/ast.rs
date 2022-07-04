@@ -1,13 +1,22 @@
 use std::ops::Range;
 
 #[derive(Debug)]
-pub enum Item {
+pub struct Item {
+    pub kind: ItemKind,
+    pub range: Range<usize>,
+}
+
+#[derive(Debug)]
+pub enum ItemKind {
     Function { name: String, params: Vec<(String, Ty)>, return_ty: Ty, body: Block },
     Struct { name: String, fields: Vec<(String, Ty)> },
 }
 
 #[derive(Debug)]
-pub struct Block(pub Vec<Stmt>);
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+    pub range: Range<usize>,
+}
 
 #[derive(Debug)]
 pub enum Stmt {
