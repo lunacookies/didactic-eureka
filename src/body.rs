@@ -1,25 +1,26 @@
 use crate::ast;
 use crate::errors::Error;
+use crate::index::{Index, Item};
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct LowerCtx {
+pub struct LowerCtx<'a> {
+    index: &'a Index,
     variables: HashMap<String, VariableId>,
     current_variable_id: VariableId,
     let_stmts: HashMap<VariableId, Expr>,
 }
 
-impl Default for LowerCtx {
-    fn default() -> Self {
+impl<'a> LowerCtx<'a> {
+    pub fn new(index: &'a Index) -> LowerCtx<'a> {
         LowerCtx {
+            index,
             variables: HashMap::new(),
             current_variable_id: VariableId(0),
             let_stmts: HashMap::new(),
         }
     }
-}
 
-impl LowerCtx {
     pub fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
         let mut stmts = Vec::new();
 
@@ -58,6 +59,31 @@ impl LowerCtx {
                 }
             },
             ast::ExprKind::Call { name, args } => {
+                match self.index.get(name) {
+                    Some(Item::Function { params, .. }) => {
+                        let expected_arity = params.len();
+                        let actual_arity = args.len();
+                        if expected_arity != actual_arity {
+                            return Err(Error {
+                                message: format!("expected {expected_arity} arguments to `{name}`, got {actual_arity}"),
+                                range:ast.range.clone()
+                            });
+                        }
+                    }
+                    Some(Item::Struct { .. }) => {
+                        return Err(Error {
+                            message: format!("tried to call struct `{name}`"),
+                            range: ast.range.clone(),
+                        })
+                    }
+                    None => {
+                        return Err(Error {
+                            message: format!("undefined function `{name}`"),
+                            range: ast.range.clone(),
+                        })
+                    }
+                }
+
                 let mut lowered_args = Vec::new();
 
                 for arg in args {

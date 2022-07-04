@@ -45,3 +45,9 @@ pub enum Ty {
     Named(String),
     Pointer(Box<Ty>),
 }
+
+impl Index {
+    pub fn get(&self, name: &str) -> Option<&Item> {
+        self.0.get(name)
+    }
+}
