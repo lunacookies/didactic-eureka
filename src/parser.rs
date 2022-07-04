@@ -1,7 +1,8 @@
 use crate::ast;
+use crate::errors::Error;
 use crate::lexer::{Token, TokenKind};
 
-pub fn parse(tokens: &[Token<'_>]) -> ParseResult<Vec<ast::Item>> {
+pub fn parse(tokens: &[Token<'_>]) -> Result<Vec<ast::Item>, Error> {
     let mut parser = Parser { tokens, token_idx: 0 };
     let mut items = Vec::new();
 
@@ -12,20 +13,13 @@ pub fn parse(tokens: &[Token<'_>]) -> ParseResult<Vec<ast::Item>> {
     Ok(items)
 }
 
-type ParseResult<T> = Result<T, SyntaxError>;
-
-#[derive(Debug)]
-pub struct SyntaxError {
-    message: String,
-}
-
 struct Parser<'a> {
     tokens: &'a [Token<'a>],
     token_idx: usize,
 }
 
 impl Parser<'_> {
-    fn parse_item(&mut self) -> ParseResult<ast::Item> {
+    fn parse_item(&mut self) -> Result<ast::Item, Error> {
         match self.peek() {
             TokenKind::FnKw => {
                 self.bump(TokenKind::FnKw);
@@ -77,7 +71,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_block(&mut self) -> ParseResult<ast::Block> {
+    fn parse_block(&mut self) -> Result<ast::Block, Error> {
         self.expect(TokenKind::LBrace)?;
         let mut stmts = Vec::new();
         while self.peek() != TokenKind::RBrace {
@@ -88,7 +82,7 @@ impl Parser<'_> {
         Ok(ast::Block(stmts))
     }
 
-    fn parse_stmt(&mut self) -> ParseResult<ast::Stmt> {
+    fn parse_stmt(&mut self) -> Result<ast::Stmt, Error> {
         if self.peek() == TokenKind::LetKw {
             self.expect(TokenKind::LetKw)?;
             let name = self.expect(TokenKind::Ident)?;
@@ -101,11 +95,11 @@ impl Parser<'_> {
         Ok(ast::Stmt::Expr(e))
     }
 
-    fn parse_expr(&mut self) -> ParseResult<ast::Expr> {
+    fn parse_expr(&mut self) -> Result<ast::Expr, Error> {
         self.parse_expr_bp(0)
     }
 
-    fn parse_expr_bp(&mut self, min_bp: u8) -> ParseResult<ast::Expr> {
+    fn parse_expr_bp(&mut self, min_bp: u8) -> Result<ast::Expr, Error> {
         let mut lhs = self.parse_lhs()?;
 
         loop {
@@ -166,7 +160,7 @@ impl Parser<'_> {
         Ok(lhs)
     }
 
-    fn parse_lhs(&mut self) -> ParseResult<ast::Expr> {
+    fn parse_lhs(&mut self) -> Result<ast::Expr, Error> {
         match self.peek() {
             TokenKind::Number => {
                 let text = self.bump(TokenKind::Number);
@@ -213,7 +207,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_call(&mut self) -> ParseResult<ast::Expr> {
+    fn parse_call(&mut self) -> Result<ast::Expr, Error> {
         let name = self.bump(TokenKind::Ident);
         self.bump(TokenKind::LParen);
 
@@ -230,7 +224,7 @@ impl Parser<'_> {
         Ok(ast::Expr::Call { name, args })
     }
 
-    fn parse_ty(&mut self) -> ParseResult<ast::Ty> {
+    fn parse_ty(&mut self) -> Result<ast::Ty, Error> {
         match self.peek() {
             TokenKind::VoidKw => {
                 self.bump(TokenKind::VoidKw);
@@ -249,7 +243,7 @@ impl Parser<'_> {
         }
     }
 
-    fn expect(&mut self, expected: TokenKind) -> ParseResult<String> {
+    fn expect(&mut self, expected: TokenKind) -> Result<String, Error> {
         let actual = self.peek();
 
         if expected == actual {
@@ -259,9 +253,9 @@ impl Parser<'_> {
         Err(self.error(&format!("{expected:?}")))
     }
 
-    fn error(&self, expected: &str) -> SyntaxError {
+    fn error(&self, expected: &str) -> Error {
         let actual = self.peek();
-        SyntaxError { message: format!("expected {expected} but got {actual:?}") }
+        Error { message: format!("expected {expected} but got {actual:?}") }
     }
 
     fn bump(&mut self, kind: TokenKind) -> String {

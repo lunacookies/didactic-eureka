@@ -20,12 +20,12 @@ fn main() -> io::Result<()> {
 
         match items {
             Ok(items) => {
-                let index = dbg!(didactic_eureka::index::index(&items));
+                let _ = dbg!(didactic_eureka::index::index(&items));
 
                 for item in &items {
                     if let didactic_eureka::ast::Item::Function { body, .. } = item {
                         let mut ctx = didactic_eureka::body::LowerCtx::default();
-                        dbg!(ctx.lower_block(body));
+                        let _ = dbg!(ctx.lower_block(body));
                     }
                 }
             }

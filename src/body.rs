@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::errors::Error;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -18,15 +19,8 @@ impl Default for LowerCtx {
     }
 }
 
-pub type LowerResult<T> = Result<T, LowerError>;
-
-#[derive(Debug)]
-pub enum LowerError {
-    UndefinedVariable,
-}
-
 impl LowerCtx {
-    pub fn lower_block(&mut self, ast: &ast::Block) -> LowerResult<Block> {
+    pub fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
         let mut stmts = Vec::new();
 
         for stmt in &ast.0 {
@@ -36,7 +30,7 @@ impl LowerCtx {
         Ok(Block(stmts))
     }
 
-    fn lower_stmt(&mut self, ast: &ast::Stmt) -> LowerResult<Stmt> {
+    fn lower_stmt(&mut self, ast: &ast::Stmt) -> Result<Stmt, Error> {
         match ast {
             ast::Stmt::Let { name, val } => {
                 let val = self.lower_expr(val)?;
@@ -49,14 +43,14 @@ impl LowerCtx {
         }
     }
 
-    fn lower_expr(&self, ast: &ast::Expr) -> LowerResult<Expr> {
+    fn lower_expr(&self, ast: &ast::Expr) -> Result<Expr, Error> {
         let e = match ast {
             ast::Expr::IntLiteral(n) => Expr::IntLiteral(*n),
             ast::Expr::StringLiteral(s) => Expr::StringLiteral(s.clone()),
             ast::Expr::CharLiteral(c) => Expr::CharLiteral(c.clone()),
             ast::Expr::Variable(name) => match self.variables.get(name) {
                 Some(id) => Expr::Variable(*id),
-                None => return Err(LowerError::UndefinedVariable),
+                None => return Err(Error { message: format!("undefined variable `{name}`") }),
             },
             ast::Expr::Call { name, args } => {
                 let mut lowered_args = Vec::new();
