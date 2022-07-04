@@ -1,27 +1,56 @@
 use crate::ast;
 use crate::errors::Error;
 use crate::index::{Index, Item};
+use id_arena::{Arena, Id};
 use std::collections::HashMap;
 
+#[derive(Debug, Default)]
+pub struct BodyDb {
+    exprs: Arena<Expr>,
+    variable_defs: Arena<VariableDef>,
+}
+
 #[derive(Debug)]
-pub struct LowerCtx<'a> {
+pub struct Block(pub Vec<Stmt>);
+
+#[derive(Debug)]
+pub enum Stmt {
+    Let(Id<VariableDef>),
+    Expr(Id<Expr>),
+}
+
+#[derive(Debug)]
+pub struct VariableDef {
+    val: Id<Expr>,
+}
+
+#[derive(Debug)]
+pub enum Expr {
+    IntLiteral(u32),
+    StringLiteral(String),
+    CharLiteral(String),
+    Variable(Id<VariableDef>),
+    Param { idx: usize },
+    Call { name: String, args: Vec<Id<Expr>> },
+    Binary { lhs: Id<Expr>, rhs: Id<Expr>, op: ast::BinaryOp },
+    Prefix { expr: Id<Expr>, op: ast::PrefixOp },
+}
+
+pub fn lower(ast: &ast::Block, index: &Index) -> Result<(Block, BodyDb), Error> {
+    let mut ctx = LowerCtx { body_db: BodyDb::default(), index, variables: HashMap::new() };
+    let b = ctx.lower_block(ast)?;
+    Ok((b, ctx.body_db))
+}
+
+#[derive(Debug)]
+struct LowerCtx<'a> {
+    body_db: BodyDb,
     index: &'a Index,
-    variables: HashMap<String, VariableId>,
-    current_variable_id: VariableId,
-    let_stmts: HashMap<VariableId, Expr>,
+    variables: HashMap<String, Id<VariableDef>>,
 }
 
 impl<'a> LowerCtx<'a> {
-    pub fn new(index: &'a Index) -> LowerCtx<'a> {
-        LowerCtx {
-            index,
-            variables: HashMap::new(),
-            current_variable_id: VariableId(0),
-            let_stmts: HashMap::new(),
-        }
-    }
-
-    pub fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
+    fn lower_block(&mut self, ast: &ast::Block) -> Result<Block, Error> {
         let mut stmts = Vec::new();
 
         for stmt in &ast.stmts {
@@ -35,16 +64,15 @@ impl<'a> LowerCtx<'a> {
         match ast {
             ast::Stmt::Let { name, val } => {
                 let val = self.lower_expr(val)?;
-                let new_id = VariableId(self.current_variable_id.0 + 1);
-                self.variables.insert(name.clone(), new_id);
-                self.let_stmts.insert(new_id, val);
-                Ok(Stmt::Let(new_id))
+                let id = self.body_db.variable_defs.alloc(VariableDef { val });
+                self.variables.insert(name.clone(), id);
+                Ok(Stmt::Let(id))
             }
             ast::Stmt::Expr(e) => Ok(Stmt::Expr(self.lower_expr(e)?)),
         }
     }
 
-    fn lower_expr(&self, ast: &ast::Expr) -> Result<Expr, Error> {
+    fn lower_expr(&mut self, ast: &ast::Expr) -> Result<Id<Expr>, Error> {
         let e = match &ast.kind {
             ast::ExprKind::IntLiteral(n) => Expr::IntLiteral(*n),
             ast::ExprKind::StringLiteral(s) => Expr::StringLiteral(s.clone()),
@@ -92,40 +120,14 @@ impl<'a> LowerCtx<'a> {
 
                 Expr::Call { name: name.clone(), args: lowered_args }
             }
-            ast::ExprKind::Binary { lhs, rhs, op } => Expr::Binary {
-                lhs: Box::new(self.lower_expr(lhs)?),
-                rhs: Box::new(self.lower_expr(rhs)?),
-                op: *op,
-            },
+            ast::ExprKind::Binary { lhs, rhs, op } => {
+                Expr::Binary { lhs: self.lower_expr(lhs)?, rhs: self.lower_expr(rhs)?, op: *op }
+            }
             ast::ExprKind::Prefix { expr, op } => {
-                Expr::Prefix { expr: Box::new(self.lower_expr(expr)?), op: *op }
+                Expr::Prefix { expr: self.lower_expr(expr)?, op: *op }
             }
         };
 
-        Ok(e)
+        Ok(self.body_db.exprs.alloc(e))
     }
 }
-
-#[derive(Debug)]
-pub struct Block(pub Vec<Stmt>);
-
-#[derive(Debug)]
-pub enum Stmt {
-    Let(VariableId),
-    Expr(Expr),
-}
-
-#[derive(Debug)]
-pub enum Expr {
-    IntLiteral(u32),
-    StringLiteral(String),
-    CharLiteral(String),
-    Variable(VariableId),
-    Param { idx: usize },
-    Call { name: String, args: Vec<Expr> },
-    Binary { lhs: Box<Expr>, rhs: Box<Expr>, op: ast::BinaryOp },
-    Prefix { expr: Box<Expr>, op: ast::PrefixOp },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct VariableId(u32);

@@ -34,8 +34,8 @@ fn analyze(input: &str) -> Result<(), didactic_eureka::errors::Error> {
 
     for item in &items {
         if let didactic_eureka::ast::ItemKind::Function { body, .. } = &item.kind {
-            let mut ctx = didactic_eureka::body::LowerCtx::new(&index);
-            dbg!(ctx.lower_block(body)?);
+            let (block, db) = didactic_eureka::body::lower(body, &index)?;
+            dbg!(block, db);
         }
     }
 
