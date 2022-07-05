@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
 }
 
 fn analyze(input: &str) -> Result<(), didactic_eureka::errors::Error> {
-    let tokens = dbg!(didactic_eureka::lexer::lex(&input));
+    let tokens = dbg!(didactic_eureka::lexer::lex(input));
     let items = dbg!(didactic_eureka::parser::parse(&tokens)?);
 
     let index = dbg!(didactic_eureka::index::index(&items)?);
