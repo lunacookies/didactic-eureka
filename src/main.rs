@@ -33,8 +33,8 @@ fn analyze(input: &str) -> Result<(), didactic_eureka::errors::Error> {
     let index = dbg!(didactic_eureka::index::index(&items)?);
 
     for item in &items {
-        if let didactic_eureka::ast::ItemKind::Function { body, .. } = &item.kind {
-            let (block, db) = didactic_eureka::body::lower(body, &index)?;
+        if let didactic_eureka::ast::ItemKind::Function(f) = &item.kind {
+            let (block, db) = didactic_eureka::body::lower(&f.body, &index)?;
             dbg!(&block, &db);
         }
     }

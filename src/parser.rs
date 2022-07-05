@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Block, Expr, ExprKind, Item, ItemKind, PrefixOp, Stmt, Ty};
+use crate::ast::{BinaryOp, Block, Expr, ExprKind, Function, Item, ItemKind, PrefixOp, Stmt, Ty};
 use crate::errors::Error;
 use crate::lexer::{Token, TokenKind};
 use std::ops::Range;
@@ -45,7 +45,10 @@ impl Parser<'_> {
                 let body = self.parse_block()?;
 
                 let range = fn_range.start..body.range.end;
-                Ok(Item { kind: ItemKind::Function { name, params, return_ty, body }, range })
+                Ok(Item {
+                    kind: ItemKind::Function(Function { name, params, return_ty, body }),
+                    range,
+                })
             }
 
             TokenKind::StructKw => {

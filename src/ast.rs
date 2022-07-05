@@ -8,8 +8,16 @@ pub struct Item {
 
 #[derive(Debug)]
 pub enum ItemKind {
-    Function { name: String, params: Vec<(String, Ty)>, return_ty: Ty, body: Block },
+    Function(Function),
     Struct { name: String, fields: Vec<(String, Ty)> },
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: String,
+    pub params: Vec<(String, Ty)>,
+    pub return_ty: Ty,
+    pub body: Block,
 }
 
 #[derive(Debug)]
