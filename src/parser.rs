@@ -93,10 +93,12 @@ impl Parser<'_> {
             let (name, _) = self.expect(TokenKind::Ident)?;
             self.expect(TokenKind::Eq)?;
             let val = self.parse_expr()?;
+            self.expect(TokenKind::Semi)?;
             return Ok(Stmt::Let { name, val });
         }
 
         let e = self.parse_expr()?;
+        self.expect(TokenKind::Semi)?;
         Ok(Stmt::Expr(e))
     }
 
