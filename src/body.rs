@@ -154,26 +154,75 @@ impl LowerCtx<'_> {
                 (Expr::Call { name: name.clone(), args: lowered_args }, return_ty.clone())
             }
             ast::ExprKind::Binary { lhs, rhs, op } => {
-                let (lhs, _) = self.lower_expr(lhs)?;
-                let (rhs, _) = self.lower_expr(rhs)?;
+                let (lhs, lhs_ty) = self.lower_expr(lhs)?;
+                let (rhs, rhs_ty) = self.lower_expr(rhs)?;
+
                 let ty = match op {
                     ast::BinaryOp::Add
                     | ast::BinaryOp::Sub
                     | ast::BinaryOp::Mul
-                    | ast::BinaryOp::Div => ast::Ty::Named("int".to_string()),
-                    ast::BinaryOp::Assign
-                    | ast::BinaryOp::AddAssign
+                    | ast::BinaryOp::Div => {
+                        self.unify_tys(
+                            ast::Ty::Named("int".to_string()),
+                            lhs_ty,
+                            self.body_db.expr_ranges[&lhs].clone(),
+                        )?;
+                        self.unify_tys(
+                            ast::Ty::Named("int".to_string()),
+                            rhs_ty,
+                            self.body_db.expr_ranges[&rhs].clone(),
+                        )?;
+                        ast::Ty::Named("int".to_string())
+                    }
+
+                    ast::BinaryOp::Assign => ast::Ty::Void,
+
+                    ast::BinaryOp::AddAssign
                     | ast::BinaryOp::SubAssign
                     | ast::BinaryOp::MulAssign
-                    | ast::BinaryOp::DivAssign => ast::Ty::Void,
-                    ast::BinaryOp::Eq
-                    | ast::BinaryOp::NEq
-                    | ast::BinaryOp::And
-                    | ast::BinaryOp::Or
-                    | ast::BinaryOp::Lt
+                    | ast::BinaryOp::DivAssign => {
+                        // TODO: verify lhs is an int lvalue
+                        self.unify_tys(
+                            ast::Ty::Named("int".to_string()),
+                            rhs_ty,
+                            self.body_db.expr_ranges[&rhs].clone(),
+                        )?;
+                        ast::Ty::Void
+                    }
+
+                    // TOOD: what types does equality work on?
+                    ast::BinaryOp::Eq | ast::BinaryOp::NEq => ast::Ty::Named("bool".to_string()),
+
+                    ast::BinaryOp::And | ast::BinaryOp::Or => {
+                        self.unify_tys(
+                            ast::Ty::Named("bool".to_string()),
+                            lhs_ty,
+                            self.body_db.expr_ranges[&lhs].clone(),
+                        )?;
+                        self.unify_tys(
+                            ast::Ty::Named("bool".to_string()),
+                            rhs_ty,
+                            self.body_db.expr_ranges[&rhs].clone(),
+                        )?;
+                        ast::Ty::Named("bool".to_string())
+                    }
+
+                    ast::BinaryOp::Lt
                     | ast::BinaryOp::Gt
                     | ast::BinaryOp::LtEq
-                    | ast::BinaryOp::GtEq => ast::Ty::Named("bool".to_string()),
+                    | ast::BinaryOp::GtEq => {
+                        self.unify_tys(
+                            ast::Ty::Named("bool".to_string()),
+                            lhs_ty,
+                            self.body_db.expr_ranges[&lhs].clone(),
+                        )?;
+                        self.unify_tys(
+                            ast::Ty::Named("bool".to_string()),
+                            rhs_ty,
+                            self.body_db.expr_ranges[&rhs].clone(),
+                        )?;
+                        ast::Ty::Named("bool".to_string())
+                    }
                 };
 
                 (Expr::Binary { lhs, rhs, op: *op }, ty)
