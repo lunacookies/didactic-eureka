@@ -9,7 +9,7 @@ use std::ops::Range;
 pub struct BodyDb {
     pub(crate) exprs: Arena<Expr>,
     pub(crate) expr_ranges: HashMap<Id<Expr>, Range<usize>>,
-    pub(crate) variable_defs: Arena<VariableDef>,
+    pub(crate) local_defs: Arena<LocalDef>,
 }
 
 #[derive(Debug)]
@@ -17,12 +17,12 @@ pub struct Block(pub Vec<Stmt>);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Stmt {
-    Let(Id<VariableDef>),
+    Let(Id<LocalDef>),
     Expr(Id<Expr>),
 }
 
 #[derive(Debug, Clone)]
-pub struct VariableDef {
+pub struct LocalDef {
     pub val: Id<Expr>,
     pub ty: ast::Ty,
 }
@@ -32,7 +32,7 @@ pub enum Expr {
     IntLiteral(u32),
     StringLiteral(String),
     CharLiteral(String),
-    Variable(Id<VariableDef>),
+    Local(Id<LocalDef>),
     Param { idx: usize },
     Call { name: String, args: Vec<Id<Expr>> },
     Binary { lhs: Id<Expr>, rhs: Id<Expr>, op: ast::BinaryOp },
@@ -49,7 +49,7 @@ pub fn lower(ast: &ast::Block, index: &Index) -> Result<(Block, BodyDb), Error> 
 struct LowerCtx<'a> {
     body_db: BodyDb,
     index: &'a Index,
-    variables: HashMap<String, Id<VariableDef>>,
+    locals: HashMap<String, Id<LocalDef>>,
 }
 
 impl LowerCtx<'_> {
@@ -67,8 +67,8 @@ impl LowerCtx<'_> {
         match ast {
             ast::Stmt::Let { name, val } => {
                 let (val, ty) = self.lower_expr(val)?;
-                let id = self.body_db.variable_defs.alloc(VariableDef { val, ty });
-                self.variables.insert(name.clone(), id);
+                let id = self.body_db.local_defs.alloc(LocalDef { val, ty });
+                self.locals.insert(name.clone(), id);
                 Ok(Stmt::Let(id))
             }
             ast::Stmt::Expr(e) => {
@@ -89,10 +89,10 @@ impl LowerCtx<'_> {
             ast::ExprKind::CharLiteral(c) => {
                 (Expr::CharLiteral(c.clone()), ast::Ty::Named("char".to_string()))
             }
-            ast::ExprKind::Variable(name) => match self.variables.get(name) {
+            ast::ExprKind::Local(name) => match self.locals.get(name) {
                 Some(id) => {
-                    let ty = self.body_db.variable_defs[*id].ty.clone();
-                    (Expr::Variable(*id), ty)
+                    let ty = self.body_db.local_defs[*id].ty.clone();
+                    (Expr::Local(*id), ty)
                 }
                 None => {
                     return Err(Error {

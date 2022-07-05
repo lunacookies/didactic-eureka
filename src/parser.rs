@@ -197,7 +197,7 @@ impl Parser<'_> {
                 }
 
                 let (text, range) = self.bump(TokenKind::Ident);
-                Ok(Expr { kind: ExprKind::Variable(text), range })
+                Ok(Expr { kind: ExprKind::Local(text), range })
             }
             TokenKind::LParen => {
                 let (_, l_range) = self.bump(TokenKind::LParen);
