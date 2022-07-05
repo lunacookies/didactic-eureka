@@ -58,6 +58,10 @@ pub enum TokenKind {
     Dot,
     #[token(",")]
     Comma,
+    #[token(":")]
+    Colon,
+    #[token(";")]
+    Semi,
     #[token("!")]
     Bang,
     #[token("+")]
