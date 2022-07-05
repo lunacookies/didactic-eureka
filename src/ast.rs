@@ -43,7 +43,7 @@ pub enum ExprKind {
     IntLiteral(u32),
     StringLiteral(String),
     CharLiteral(String),
-    Variable(String),
+    Local(String),
     Call { name: String, args: Vec<Expr> },
     Binary { lhs: Box<Expr>, rhs: Box<Expr>, op: BinaryOp },
     Prefix { expr: Box<Expr>, op: PrefixOp },

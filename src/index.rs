@@ -1,4 +1,4 @@
-use crate::ast;
+use crate::ast::{self, Function};
 use crate::errors::Error;
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ pub fn index(ast: &[ast::Item]) -> Result<Index, Error> {
 
     for item_ast in ast {
         let (name, item) = match &item_ast.kind {
-            ast::ItemKind::Function { name, params, return_ty, body: _ } => {
+            ast::ItemKind::Function(Function { name, params, return_ty, body: _ }) => {
                 let params = params.iter().map(|(name, ty)| (name.clone(), ty.clone())).collect();
                 (name.clone(), Item::Function { params, return_ty: return_ty.clone() })
             }

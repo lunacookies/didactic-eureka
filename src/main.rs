@@ -34,7 +34,7 @@ fn analyze(input: &str) -> Result<(), didactic_eureka::errors::Error> {
 
     for item in &items {
         if let didactic_eureka::ast::ItemKind::Function(f) = &item.kind {
-            let (block, db) = didactic_eureka::body::lower(&f.body, &index)?;
+            let (block, db) = didactic_eureka::body::lower(f, &index)?;
             dbg!(&block, &db);
         }
     }

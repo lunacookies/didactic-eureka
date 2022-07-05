@@ -39,9 +39,16 @@ pub enum Expr {
     Prefix { expr: Id<Expr>, op: ast::PrefixOp },
 }
 
-pub fn lower(ast: &ast::Block, index: &Index) -> Result<(Block, BodyDb), Error> {
-    let mut ctx = LowerCtx { body_db: BodyDb::default(), index, variables: HashMap::new() };
-    let b = ctx.lower_block(ast)?;
+pub fn lower(ast: &ast::Function, index: &Index) -> Result<(Block, BodyDb), Error> {
+    let params = ast
+        .params
+        .iter()
+        .enumerate()
+        .map(|(i, (name, ty))| (name.clone(), (i, ty.clone())))
+        .collect();
+
+    let mut ctx = LowerCtx { body_db: BodyDb::default(), index, locals: HashMap::new(), params };
+    let b = ctx.lower_block(&ast.body)?;
     Ok((b, ctx.body_db))
 }
 
@@ -50,6 +57,7 @@ struct LowerCtx<'a> {
     body_db: BodyDb,
     index: &'a Index,
     locals: HashMap<String, Id<LocalDef>>,
+    params: HashMap<String, (usize, ast::Ty)>,
 }
 
 impl LowerCtx<'_> {
@@ -94,12 +102,15 @@ impl LowerCtx<'_> {
                     let ty = self.body_db.local_defs[*id].ty.clone();
                     (Expr::Local(*id), ty)
                 }
-                None => {
-                    return Err(Error {
-                        message: format!("undefined variable `{name}`"),
-                        range: ast.range.clone(),
-                    })
-                }
+                None => match self.params.get(name) {
+                    Some((idx, ty)) => (Expr::Param { idx: *idx }, ty.clone()),
+                    None => {
+                        return Err(Error {
+                            message: format!("undefined variable `{name}`"),
+                            range: ast.range.clone(),
+                        })
+                    }
+                },
             },
             ast::ExprKind::Call { name, args } => {
                 let (params, return_ty) = match self.index.get(name) {
