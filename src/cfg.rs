@@ -32,57 +32,62 @@ impl fmt::Debug for Cfg {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		for (i, bb) in self.blocks.iter().enumerate() {
 			writeln!(f)?;
-
 			let label = Label(i as u16);
-			write!(f, "{label:?}")?;
+			bb.debug(label, f)?;
+		}
 
-			if !bb.arguments.is_empty() {
-				write!(f, "(")?;
-				for (i, arg) in bb.arguments.iter().enumerate() {
-					if i != 0 {
-						write!(f, ", ")?;
-					}
-					write!(f, "{arg:?}")?;
+		Ok(())
+	}
+}
+
+impl BasicBlock {
+	fn debug(&self, label: Label, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{label:?}")?;
+
+		if !self.arguments.is_empty() {
+			write!(f, "(")?;
+			for (i, arg) in self.arguments.iter().enumerate() {
+				if i != 0 {
+					write!(f, ", ")?;
 				}
-				write!(f, ")")?;
+				write!(f, "{arg:?}")?;
 			}
+			write!(f, ")")?;
+		}
 
-			writeln!(f, ":")?;
+		writeln!(f, ":")?;
 
-			for instr in &bb.instrs {
-				writeln!(f, "  {instr:?}")?;
+		for instr in &self.instrs {
+			writeln!(f, "  {instr:?}")?;
+		}
+
+		write!(f, "  ")?;
+		match &self.tail {
+			BasicBlockTail::ConditionalBranch {
+				condition,
+				true_branch,
+				false_branch,
+			} => {
+				write!(
+					f,
+					"cond_br {condition:?} {true_branch:?} {false_branch:?}"
+				)?;
 			}
-
-			write!(f, "  ")?;
-			match &bb.tail {
-				BasicBlockTail::ConditionalBranch {
-					condition,
-					true_branch,
-					false_branch,
-				} => {
-					write!(
-						f,
-						"\x1b[35mcond_br\x1b[0m {condition:?} {true_branch:?} {false_branch:?}"
-					)?;
-				}
-				BasicBlockTail::Branch { label, arguments } => {
-					write!(f, "\x1b[35mbr\x1b[0m {label:?}")?;
-					if !arguments.is_empty() {
-						write!(f, "(")?;
-						for (i, arg) in arguments.iter().enumerate() {
-							if i != 0 {
-								write!(f, ", ")?;
-							}
-							write!(f, "{arg:?}")?;
+			BasicBlockTail::Branch { label, arguments } => {
+				write!(f, "br {label:?}")?;
+				if !arguments.is_empty() {
+					write!(f, "(")?;
+					for (i, arg) in arguments.iter().enumerate() {
+						if i != 0 {
+							write!(f, ", ")?;
 						}
-						write!(f, ")")?;
+						write!(f, "{arg:?}")?;
 					}
+					write!(f, ")")?;
 				}
-				BasicBlockTail::Return(reg) => {
-					write!(f, "\x1b[35mret\x1b[0m {reg:?}")?
-				}
-				BasicBlockTail::ReturnVoid => write!(f, "\x1b[35mret\x1b[0m")?,
 			}
+			BasicBlockTail::Return(reg) => write!(f, "ret {reg:?}")?,
+			BasicBlockTail::ReturnVoid => write!(f, "ret")?,
 		}
 
 		Ok(())
@@ -91,6 +96,6 @@ impl fmt::Debug for Cfg {
 
 impl fmt::Debug for Label {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "\x1b[33ml{}\x1b[0m", self.0)
+		write!(f, "l{}", self.0)
 	}
 }

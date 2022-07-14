@@ -12,10 +12,10 @@ impl fmt::Debug for Instr {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Instr::Const { dst, val } => {
-				write!(f, "{dst:?} = \x1b[32m#{val}\x1b[0m")
+				write!(f, "{dst:?} = #{val}")
 			}
 			Instr::Add { dst, lhs, rhs } => {
-				write!(f, "{dst:?} = \x1b[35madd\x1b[0m {lhs:?} {rhs:?}")
+				write!(f, "{dst:?} = add {lhs:?} {rhs:?}")
 			}
 		}
 	}
@@ -23,6 +23,6 @@ impl fmt::Debug for Instr {
 
 impl fmt::Debug for Register {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "\x1b[36mr{}\x1b[0m", self.0)
+		write!(f, "r{}", self.0)
 	}
 }
