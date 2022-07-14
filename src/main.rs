@@ -18,7 +18,10 @@ fn main() -> io::Result<()> {
 		let tokens = didactic_eureka::lexer::lex(&input);
 		dbg!(&tokens);
 
-		dbg!(didactic_eureka::parser::parse(&tokens));
+		let source_file = didactic_eureka::parser::parse(&tokens);
+		dbg!(&source_file);
+		let block = didactic_eureka::tac::lower(&source_file);
+		dbg!(&block);
 
 		input.clear();
 	}
