@@ -1,8 +1,5 @@
 use std::fmt;
 
-#[derive(Debug)]
-pub struct Block(pub Vec<Instr>);
-
 pub enum Instr {
 	Const { dst: Register, val: u32 },
 	Add { dst: Register, lhs: Register, rhs: Register },

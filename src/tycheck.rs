@@ -1,13 +1,14 @@
 use crate::ast::{Expr, SourceFile, Statement};
-use crate::tac::{Block, Instr, Register};
+use crate::cfg::BasicBlock;
+use crate::tac::{Instr, Register};
 use std::collections::HashMap;
 
-pub fn lower(source_file: &SourceFile) -> Block {
+pub fn lower(source_file: &SourceFile) -> BasicBlock {
 	let mut ctx =
 		Ctx { instrs: Vec::new(), name_map: HashMap::new(), current_register: Register(0) };
 	ctx.lower_source_file(source_file);
 
-	Block(ctx.instrs)
+	BasicBlock(ctx.instrs)
 }
 
 struct Ctx {
