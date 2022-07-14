@@ -20,7 +20,7 @@ fn main() -> io::Result<()> {
 
 		let source_file = didactic_eureka::parser::parse(&tokens);
 		dbg!(&source_file);
-		let block = didactic_eureka::tac::lower(&source_file);
+		let block = didactic_eureka::tycheck::lower(&source_file);
 		dbg!(&block);
 
 		input.clear();
