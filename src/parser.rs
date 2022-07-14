@@ -71,6 +71,17 @@ impl Parser<'_> {
 		match self.peek() {
 			TokenKind::Number => Expr::Number(self.expect(TokenKind::Number).parse().unwrap()),
 			TokenKind::Ident => Expr::Variable(self.expect(TokenKind::Ident)),
+			TokenKind::IfKw => {
+				self.bump();
+				let condition = self.parse_expr();
+				let true_branch = self.parse_expr();
+				let false_branch = self.parse_expr();
+				Expr::If {
+					condition: Box::new(condition),
+					true_branch: Box::new(true_branch),
+					false_branch: Box::new(false_branch),
+				}
+			}
 			_ => panic!("expected expression"),
 		}
 	}

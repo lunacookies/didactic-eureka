@@ -30,6 +30,12 @@ pub enum TokenKind {
 	#[token("let")]
 	LetKw,
 
+	#[token("if")]
+	IfKw,
+
+	#[token("else")]
+	ElseKw,
+
 	#[regex("[a-z][a-z0-9]*")]
 	Ident,
 
