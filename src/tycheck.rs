@@ -1,5 +1,5 @@
 use crate::ast::{Expr, SourceFile, Statement};
-use crate::cfg::{BasicBlock, BasicBlockTail, Cfg, Label};
+use crate::cfg::{BasicBlock, Cfg, Label, TerminatorInstr};
 use crate::tac::{Instr, Register};
 use std::collections::HashMap;
 use std::mem;
@@ -38,7 +38,7 @@ impl Ctx {
 				}
 			}
 		}
-		self.finish_basic_block(BasicBlockTail::ReturnVoid);
+		self.finish_basic_block(TerminatorInstr::ReturnVoid);
 	}
 
 	fn lower_expr(&mut self, expr: &Expr) -> Register {
@@ -65,7 +65,7 @@ impl Ctx {
 			Expr::If { condition, true_branch, false_branch } => {
 				let condition = self.lower_expr(condition);
 				let condition_label = self.current_basic_block_label();
-				self.finish_basic_block(BasicBlockTail::ConditionalBranch {
+				self.finish_basic_block(TerminatorInstr::ConditionalBranch {
 					condition,
 					true_branch: Label(u16::MAX),
 					false_branch: Label(u16::MAX),
@@ -74,7 +74,7 @@ impl Ctx {
 				let true_branch_start_label = self.current_basic_block_label();
 				let true_branch = self.lower_expr(true_branch);
 				let true_branch_end_label = self.current_basic_block_label();
-				self.finish_basic_block(BasicBlockTail::Branch {
+				self.finish_basic_block(TerminatorInstr::Branch {
 					label: Label(u16::MAX),
 					arguments: vec![true_branch],
 				});
@@ -83,15 +83,16 @@ impl Ctx {
 					self.current_basic_block_label();
 				let false_branch = self.lower_expr(false_branch);
 				let false_branch_end_label = self.current_basic_block_label();
-				self.finish_basic_block(BasicBlockTail::Branch {
+				self.finish_basic_block(TerminatorInstr::Branch {
 					label: Label(u16::MAX),
 					arguments: vec![false_branch],
 				});
 
 				let join_label = self.current_basic_block_label();
 
-				match &mut self.cfg.bbs[condition_label.0 as usize].tail {
-					BasicBlockTail::ConditionalBranch {
+				match &mut self.cfg.bbs[condition_label.0 as usize].terminator
+				{
+					TerminatorInstr::ConditionalBranch {
 						true_branch,
 						false_branch,
 						..
@@ -101,16 +102,18 @@ impl Ctx {
 					}
 					_ => unreachable!(),
 				}
-				match &mut self.cfg.bbs[true_branch_end_label.0 as usize].tail
+				match &mut self.cfg.bbs[true_branch_end_label.0 as usize]
+					.terminator
 				{
-					BasicBlockTail::Branch { label, .. } => {
+					TerminatorInstr::Branch { label, .. } => {
 						*label = join_label
 					}
 					_ => unreachable!(),
 				}
-				match &mut self.cfg.bbs[false_branch_end_label.0 as usize].tail
+				match &mut self.cfg.bbs[false_branch_end_label.0 as usize]
+					.terminator
 				{
-					BasicBlockTail::Branch { label, .. } => {
+					TerminatorInstr::Branch { label, .. } => {
 						*label = join_label
 					}
 					_ => unreachable!(),
@@ -123,10 +126,10 @@ impl Ctx {
 		}
 	}
 
-	fn finish_basic_block(&mut self, tail: BasicBlockTail) {
+	fn finish_basic_block(&mut self, terminator: TerminatorInstr) {
 		let arguments = mem::take(&mut self.arguments);
 		let instrs = mem::take(&mut self.instrs);
-		self.cfg.bbs.push(BasicBlock { arguments, instrs, tail });
+		self.cfg.bbs.push(BasicBlock { arguments, instrs, terminator });
 	}
 
 	fn next_register(&mut self) -> Register {

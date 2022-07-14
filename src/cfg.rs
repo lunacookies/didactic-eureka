@@ -8,10 +8,10 @@ pub struct Cfg {
 pub struct BasicBlock {
 	pub arguments: Vec<Register>,
 	pub instrs: Vec<Instr>,
-	pub tail: BasicBlockTail,
+	pub terminator: TerminatorInstr,
 }
 
-pub enum BasicBlockTail {
+pub enum TerminatorInstr {
 	ConditionalBranch {
 		condition: Register,
 		true_branch: Label,
@@ -54,8 +54,8 @@ impl fmt::Display for Cfg {
 				"\n\t{i} [label=\"{}\\l\"]",
 				bb.debug(Label(i as u16)).replace('\n', "\\l")
 			)?;
-			match bb.tail {
-				BasicBlockTail::ConditionalBranch {
+			match bb.terminator {
+				TerminatorInstr::ConditionalBranch {
 					true_branch,
 					false_branch,
 					..
@@ -71,10 +71,10 @@ impl fmt::Display for Cfg {
 						false_branch.0
 					)?;
 				}
-				BasicBlockTail::Branch { label, .. } => {
+				TerminatorInstr::Branch { label, .. } => {
 					write!(f, "\n\t{i} -> {}", label.0)?
 				}
-				BasicBlockTail::Return(_) | BasicBlockTail::ReturnVoid => {}
+				TerminatorInstr::Return(_) | TerminatorInstr::ReturnVoid => {}
 			}
 		}
 
@@ -108,8 +108,8 @@ impl BasicBlock {
 		}
 
 		write!(s, "  ").unwrap();
-		match &self.tail {
-			BasicBlockTail::ConditionalBranch {
+		match &self.terminator {
+			TerminatorInstr::ConditionalBranch {
 				condition,
 				true_branch,
 				false_branch,
@@ -120,7 +120,7 @@ impl BasicBlock {
 				)
 				.unwrap();
 			}
-			BasicBlockTail::Branch { label, arguments } => {
+			TerminatorInstr::Branch { label, arguments } => {
 				write!(s, "br {label:?}").unwrap();
 				if !arguments.is_empty() {
 					write!(s, "(").unwrap();
@@ -133,8 +133,8 @@ impl BasicBlock {
 					write!(s, ")").unwrap();
 				}
 			}
-			BasicBlockTail::Return(reg) => write!(s, "ret {reg:?}").unwrap(),
-			BasicBlockTail::ReturnVoid => write!(s, "ret").unwrap(),
+			TerminatorInstr::Return(reg) => write!(s, "ret {reg:?}").unwrap(),
+			TerminatorInstr::ReturnVoid => write!(s, "ret").unwrap(),
 		}
 
 		s
