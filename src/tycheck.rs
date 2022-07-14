@@ -2,13 +2,11 @@ use crate::ast::{Expr, SourceFile, Statement};
 use crate::cfg::{BasicBlock, Cfg, Label, TerminatorInstr};
 use crate::tac::{Instr, Register};
 use std::collections::HashMap;
-use std::mem;
 
 pub fn lower(source_file: &SourceFile) -> Cfg {
 	let mut ctx = Ctx {
-		arguments: Vec::new(),
-		instrs: Vec::new(),
-		cfg: Cfg { bbs: Vec::new() },
+		current_basic_block_label: Label(0),
+		cfg: Cfg { bbs: vec![BasicBlock::default()] },
 		name_map: HashMap::new(),
 		current_register: Register(0),
 	};
@@ -18,8 +16,7 @@ pub fn lower(source_file: &SourceFile) -> Cfg {
 }
 
 struct Ctx {
-	arguments: Vec<Register>,
-	instrs: Vec<Instr>,
+	current_basic_block_label: Label,
 	cfg: Cfg,
 	name_map: HashMap<String, Register>,
 	current_register: Register,
@@ -38,14 +35,13 @@ impl Ctx {
 				}
 			}
 		}
-		self.finish_basic_block(TerminatorInstr::ReturnVoid);
 	}
 
 	fn lower_expr(&mut self, expr: &Expr) -> Register {
 		match expr {
 			Expr::Number(val) => {
 				let dst = self.next_register();
-				self.instrs.push(Instr::Const { dst, val: *val });
+				self.push_instr(Instr::Const { dst, val: *val });
 				dst
 			}
 
@@ -58,87 +54,72 @@ impl Ctx {
 				let lhs = self.lower_expr(lhs);
 				let rhs = self.lower_expr(rhs);
 				let dst = self.next_register();
-				self.instrs.push(Instr::Add { dst, lhs, rhs });
+				self.push_instr(Instr::Add { dst, lhs, rhs });
 				dst
 			}
 
 			Expr::If { condition, true_branch, false_branch } => {
 				let condition = self.lower_expr(condition);
-				let condition_label = self.current_basic_block_label();
-				self.finish_basic_block(TerminatorInstr::ConditionalBranch {
+				let true_branch_label = self.reserve_basic_block();
+				let false_branch_label = self.reserve_basic_block();
+				let join_label = self.reserve_basic_block();
+				self.set_terminator(TerminatorInstr::ConditionalBranch {
 					condition,
-					true_branch: Label(u16::MAX),
-					false_branch: Label(u16::MAX),
+					true_branch: true_branch_label,
+					false_branch: false_branch_label,
 				});
 
-				let true_branch_start_label = self.current_basic_block_label();
+				self.make_current(true_branch_label);
 				let true_branch = self.lower_expr(true_branch);
-				let true_branch_end_label = self.current_basic_block_label();
-				self.finish_basic_block(TerminatorInstr::Branch {
-					label: Label(u16::MAX),
+				self.set_terminator(TerminatorInstr::Branch {
+					label: join_label,
 					arguments: vec![true_branch],
 				});
 
-				let false_branch_start_label =
-					self.current_basic_block_label();
+				self.make_current(false_branch_label);
 				let false_branch = self.lower_expr(false_branch);
-				let false_branch_end_label = self.current_basic_block_label();
-				self.finish_basic_block(TerminatorInstr::Branch {
-					label: Label(u16::MAX),
+				self.set_terminator(TerminatorInstr::Branch {
+					label: join_label,
 					arguments: vec![false_branch],
 				});
 
-				let join_label = self.current_basic_block_label();
-
-				match &mut self.cfg.bbs[condition_label.0 as usize].terminator
-				{
-					TerminatorInstr::ConditionalBranch {
-						true_branch,
-						false_branch,
-						..
-					} => {
-						*true_branch = true_branch_start_label;
-						*false_branch = false_branch_start_label;
-					}
-					_ => unreachable!(),
-				}
-				match &mut self.cfg.bbs[true_branch_end_label.0 as usize]
-					.terminator
-				{
-					TerminatorInstr::Branch { label, .. } => {
-						*label = join_label
-					}
-					_ => unreachable!(),
-				}
-				match &mut self.cfg.bbs[false_branch_end_label.0 as usize]
-					.terminator
-				{
-					TerminatorInstr::Branch { label, .. } => {
-						*label = join_label
-					}
-					_ => unreachable!(),
-				}
-
+				self.make_current(join_label);
 				let result = self.next_register();
-				self.arguments.push(result);
+				self.push_argument(result);
 				result
 			}
 		}
 	}
 
-	fn finish_basic_block(&mut self, terminator: TerminatorInstr) {
-		let arguments = mem::take(&mut self.arguments);
-		let instrs = mem::take(&mut self.instrs);
-		self.cfg.bbs.push(BasicBlock { arguments, instrs, terminator });
+	fn push_instr(&mut self, instr: Instr) {
+		self.current_basic_block().instrs.push(instr);
+	}
+
+	fn push_argument(&mut self, arg: Register) {
+		self.current_basic_block().arguments.push(arg);
+	}
+
+	fn set_terminator(&mut self, terminator: TerminatorInstr) {
+		self.current_basic_block().terminator = terminator;
+	}
+
+	fn current_basic_block(&mut self) -> &mut BasicBlock {
+		&mut self.cfg.bbs[self.current_basic_block_label.0 as usize]
+	}
+
+	fn reserve_basic_block(&mut self) -> Label {
+		let i = self.cfg.bbs.len();
+		self.cfg.bbs.push(BasicBlock::default());
+		Label(i as u16)
+	}
+
+	fn make_current(&mut self, label: Label) {
+		self.current_basic_block_label = label;
 	}
 
 	fn next_register(&mut self) -> Register {
 		let register = self.current_register;
 		self.current_register.0 += 1;
 		register
-	}
-
-	fn current_basic_block_label(&self) -> Label {
-		Label(self.cfg.bbs.len() as u16)
 	}
 }

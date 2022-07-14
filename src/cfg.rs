@@ -28,6 +28,16 @@ pub enum TerminatorInstr {
 #[derive(Clone, Copy)]
 pub struct Label(pub u16);
 
+impl Default for BasicBlock {
+	fn default() -> Self {
+		BasicBlock {
+			arguments: Vec::new(),
+			instrs: Vec::new(),
+			terminator: TerminatorInstr::ReturnVoid,
+		}
+	}
+}
+
 impl fmt::Debug for Cfg {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		for (i, bb) in self.bbs.iter().enumerate() {
