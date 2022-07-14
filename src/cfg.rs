@@ -62,11 +62,11 @@ impl fmt::Debug for Cfg {
 				} => {
 					write!(
 						f,
-						"\x1b[1;33mcond_br\x1b[0m {condition:?} {true_branch:?} {false_branch:?}"
+						"\x1b[35mcond_br\x1b[0m {condition:?} {true_branch:?} {false_branch:?}"
 					)?;
 				}
 				BasicBlockTail::Branch { label, arguments } => {
-					write!(f, "\x1b[1;33mbr\x1b[0m {label:?}")?;
+					write!(f, "\x1b[35mbr\x1b[0m {label:?}")?;
 					if !arguments.is_empty() {
 						write!(f, "(")?;
 						for (i, arg) in arguments.iter().enumerate() {
@@ -79,11 +79,9 @@ impl fmt::Debug for Cfg {
 					}
 				}
 				BasicBlockTail::Return(reg) => {
-					write!(f, "\x1b[1;33mret\x1b[0m {reg:?}")?
+					write!(f, "\x1b[35mret\x1b[0m {reg:?}")?
 				}
-				BasicBlockTail::ReturnVoid => {
-					write!(f, "\x1b[1;33mret\x1b[0m")?
-				}
+				BasicBlockTail::ReturnVoid => write!(f, "\x1b[35mret\x1b[0m")?,
 			}
 		}
 

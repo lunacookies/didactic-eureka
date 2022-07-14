@@ -15,7 +15,7 @@ impl fmt::Debug for Instr {
 				write!(f, "{dst:?} = \x1b[92m#{val}\x1b[0m")
 			}
 			Instr::Add { dst, lhs, rhs } => {
-				write!(f, "{dst:?} = \x1b[1;33madd\x1b[0m {lhs:?} {rhs:?}")
+				write!(f, "{dst:?} = \x1b[35madd\x1b[0m {lhs:?} {rhs:?}")
 			}
 		}
 	}
