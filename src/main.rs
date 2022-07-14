@@ -16,10 +16,7 @@ fn main() -> io::Result<()> {
 		}
 
 		let tokens = didactic_eureka::lexer::lex(&input);
-		dbg!(&tokens);
-
 		let source_file = didactic_eureka::parser::parse(&tokens);
-		dbg!(&source_file);
 		let cfg = didactic_eureka::tycheck::lower(&source_file);
 		dbg!(&cfg);
 		println!("{cfg}");
