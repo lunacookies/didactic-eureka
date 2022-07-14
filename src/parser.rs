@@ -79,6 +79,7 @@ impl Parser<'_> {
 				self.bump();
 				let condition = self.parse_expr();
 				let true_branch = self.parse_expr();
+				self.expect(TokenKind::ElseKw);
 				let false_branch = self.parse_expr();
 				Expr::If {
 					condition: Box::new(condition),
