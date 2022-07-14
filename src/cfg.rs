@@ -12,8 +12,15 @@ pub struct BasicBlock {
 }
 
 pub enum BasicBlockTail {
-	ConditionalBranch { condition: Register, true_branch: Label, false_branch: Label },
-	Branch { label: Label, arguments: Vec<Register> },
+	ConditionalBranch {
+		condition: Register,
+		true_branch: Label,
+		false_branch: Label,
+	},
+	Branch {
+		label: Label,
+		arguments: Vec<Register>,
+	},
 	Return(Register),
 	ReturnVoid,
 }
@@ -48,7 +55,11 @@ impl fmt::Debug for Cfg {
 
 			write!(f, "  ")?;
 			match &bb.tail {
-				BasicBlockTail::ConditionalBranch { condition, true_branch, false_branch } => {
+				BasicBlockTail::ConditionalBranch {
+					condition,
+					true_branch,
+					false_branch,
+				} => {
 					write!(
 						f,
 						"\x1b[1;33mcond_br\x1b[0m {condition:?} {true_branch:?} {false_branch:?}"
@@ -67,8 +78,12 @@ impl fmt::Debug for Cfg {
 						write!(f, ")")?;
 					}
 				}
-				BasicBlockTail::Return(reg) => write!(f, "\x1b[1;33mret\x1b[0m {reg:?}")?,
-				BasicBlockTail::ReturnVoid => write!(f, "\x1b[1;33mret\x1b[0m")?,
+				BasicBlockTail::Return(reg) => {
+					write!(f, "\x1b[1;33mret\x1b[0m {reg:?}")?
+				}
+				BasicBlockTail::ReturnVoid => {
+					write!(f, "\x1b[1;33mret\x1b[0m")?
+				}
 			}
 		}
 

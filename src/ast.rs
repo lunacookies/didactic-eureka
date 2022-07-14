@@ -11,6 +11,13 @@ pub enum Statement {
 pub enum Expr {
 	Number(u32),
 	Variable(String),
-	Add { lhs: Box<Expr>, rhs: Box<Expr> },
-	If { condition: Box<Expr>, true_branch: Box<Expr>, false_branch: Box<Expr> },
+	Add {
+		lhs: Box<Expr>,
+		rhs: Box<Expr>,
+	},
+	If {
+		condition: Box<Expr>,
+		true_branch: Box<Expr>,
+		false_branch: Box<Expr>,
+	},
 }

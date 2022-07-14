@@ -11,7 +11,9 @@ pub struct Register(pub u16);
 impl fmt::Debug for Instr {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Instr::Const { dst, val } => write!(f, "{dst:?} = \x1b[92m#{val}\x1b[0m"),
+			Instr::Const { dst, val } => {
+				write!(f, "{dst:?} = \x1b[92m#{val}\x1b[0m")
+			}
 			Instr::Add { dst, lhs, rhs } => {
 				write!(f, "{dst:?} = \x1b[1;33madd\x1b[0m {lhs:?} {rhs:?}")
 			}

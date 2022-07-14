@@ -60,7 +60,9 @@ impl Parser<'_> {
 
 			let rhs = self.parse_expr_bp(bp + 1);
 			lhs = match op {
-				Op::Add => Expr::Add { lhs: Box::new(lhs), rhs: Box::new(rhs) },
+				Op::Add => {
+					Expr::Add { lhs: Box::new(lhs), rhs: Box::new(rhs) }
+				}
 			};
 		}
 
@@ -69,7 +71,9 @@ impl Parser<'_> {
 
 	fn parse_lhs(&mut self) -> Expr {
 		match self.peek() {
-			TokenKind::Number => Expr::Number(self.expect(TokenKind::Number).parse().unwrap()),
+			TokenKind::Number => {
+				Expr::Number(self.expect(TokenKind::Number).parse().unwrap())
+			}
 			TokenKind::Ident => Expr::Variable(self.expect(TokenKind::Ident)),
 			TokenKind::IfKw => {
 				self.bump();
