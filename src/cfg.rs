@@ -54,8 +54,22 @@ impl fmt::Display for Cfg {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			r#"digraph {{
-	node [fontname="Menlo,monospace", shape=box]"#
+			r##"digraph {{
+	bgcolor="#222222"
+	node [
+		fontname="Menlo,Consolas,monospace",
+		shape=box,
+		style=filled
+		color="#555555",
+		fillcolor="#333333",
+		fontcolor=white,
+	]
+	edge [
+		fontname="Verdana,sans-serif",
+		color="#bbbbbb",
+		fontcolor="#bbbbbb",
+		arrowsize=0.75,
+	]"##
 		)?;
 
 		for (i, bb) in self.bbs.iter().enumerate() {
