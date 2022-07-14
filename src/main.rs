@@ -22,6 +22,7 @@ fn main() -> io::Result<()> {
 		dbg!(&source_file);
 		let cfg = didactic_eureka::tycheck::lower(&source_file);
 		dbg!(&cfg);
+		println!("{cfg}");
 
 		input.clear();
 	}

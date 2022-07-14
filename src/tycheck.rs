@@ -8,7 +8,7 @@ pub fn lower(source_file: &SourceFile) -> Cfg {
 	let mut ctx = Ctx {
 		arguments: Vec::new(),
 		instrs: Vec::new(),
-		cfg: Cfg { blocks: Vec::new() },
+		cfg: Cfg { bbs: Vec::new() },
 		name_map: HashMap::new(),
 		current_register: Register(0),
 	};
@@ -63,30 +63,58 @@ impl Ctx {
 			}
 
 			Expr::If { condition, true_branch, false_branch } => {
-				let current_label = self.current_basic_block_label();
-				let true_branch_label = Label(current_label.0 + 1);
-				let false_branch_label = Label(current_label.0 + 2);
-				let join_label = Label(current_label.0 + 3);
-
 				let condition = self.lower_expr(condition);
-
+				let condition_label = self.current_basic_block_label();
 				self.finish_basic_block(BasicBlockTail::ConditionalBranch {
 					condition,
-					true_branch: true_branch_label,
-					false_branch: false_branch_label,
+					true_branch: Label(u16::MAX),
+					false_branch: Label(u16::MAX),
 				});
 
+				let true_branch_start_label = self.current_basic_block_label();
 				let true_branch = self.lower_expr(true_branch);
+				let true_branch_end_label = self.current_basic_block_label();
 				self.finish_basic_block(BasicBlockTail::Branch {
-					label: join_label,
+					label: Label(u16::MAX),
 					arguments: vec![true_branch],
 				});
 
+				let false_branch_start_label =
+					self.current_basic_block_label();
 				let false_branch = self.lower_expr(false_branch);
+				let false_branch_end_label = self.current_basic_block_label();
 				self.finish_basic_block(BasicBlockTail::Branch {
-					label: join_label,
+					label: Label(u16::MAX),
 					arguments: vec![false_branch],
 				});
+
+				let join_label = self.current_basic_block_label();
+
+				match &mut self.cfg.bbs[condition_label.0 as usize].tail {
+					BasicBlockTail::ConditionalBranch {
+						true_branch,
+						false_branch,
+						..
+					} => {
+						*true_branch = true_branch_start_label;
+						*false_branch = false_branch_start_label;
+					}
+					_ => unreachable!(),
+				}
+				match &mut self.cfg.bbs[true_branch_end_label.0 as usize].tail
+				{
+					BasicBlockTail::Branch { label, .. } => {
+						*label = join_label
+					}
+					_ => unreachable!(),
+				}
+				match &mut self.cfg.bbs[false_branch_end_label.0 as usize].tail
+				{
+					BasicBlockTail::Branch { label, .. } => {
+						*label = join_label
+					}
+					_ => unreachable!(),
+				}
 
 				let result = self.next_register();
 				self.arguments.push(result);
@@ -98,7 +126,7 @@ impl Ctx {
 	fn finish_basic_block(&mut self, tail: BasicBlockTail) {
 		let arguments = mem::take(&mut self.arguments);
 		let instrs = mem::take(&mut self.instrs);
-		self.cfg.blocks.push(BasicBlock { arguments, instrs, tail });
+		self.cfg.bbs.push(BasicBlock { arguments, instrs, tail });
 	}
 
 	fn next_register(&mut self) -> Register {
@@ -108,6 +136,6 @@ impl Ctx {
 	}
 
 	fn current_basic_block_label(&self) -> Label {
-		Label(self.cfg.blocks.len() as u16)
+		Label(self.cfg.bbs.len() as u16)
 	}
 }
